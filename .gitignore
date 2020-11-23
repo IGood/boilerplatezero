@@ -1,0 +1,9 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+
+# User-specific files
+*.user
+
+# Visual Studio
+.vs/

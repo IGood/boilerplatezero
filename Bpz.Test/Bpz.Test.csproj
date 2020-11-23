@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="SourceText\AttachedDP1.cs" />
+    <Compile Remove="SourceText\MinimalDP1.cs" />
+    <Compile Remove="SourceText\MinimalDP2.cs" />
+    <Compile Remove="SourceText\MinimalDP3.cs" />
+    <Compile Remove="SourceText\MinimalDP4.cs" />
+    <Compile Remove="SourceText\MinimalDP5.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="SourceText\AttachedDP1.cs" />
+    <EmbeddedResource Include="SourceText\MinimalDP5.cs" />
+    <EmbeddedResource Include="SourceText\MinimalDP4.cs" />
+    <EmbeddedResource Include="SourceText\MinimalDP1.cs" />
+    <EmbeddedResource Include="SourceText\MinimalDP3.cs" />
+    <EmbeddedResource Include="SourceText\MinimalDP2.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.8.0" />
+    <PackageReference Include="NUnit" Version="3.12.0" />
+    <PackageReference Include="NUnit3TestAdapter" Version="3.16.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\boilerplatezero\boilerplatezero.csproj" />
+  </ItemGroup>
+
+</Project>
