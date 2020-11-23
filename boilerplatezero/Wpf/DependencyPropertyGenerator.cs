@@ -10,7 +10,7 @@ namespace Bpz.Wpf
 	[Generator]
 	public class DependencyPropertyGenerator : ISourceGenerator
 	{
-		private const string HelpLinkUri = "https://github.com/IGood/";
+		private const string HelpLinkUri = "https://github.com/IGood/boilerplatezero/blob/main/README.md";
 
 		public void Initialize(GeneratorInitializationContext context)
 		{
@@ -64,7 +64,7 @@ using System.Windows;
 
 ");
 
-				context.AddSource($"bpz.g.cs", sourceBuilder.ToString());
+				context.AddSource($"bpz.DependencyProperties.g.cs", sourceBuilder.ToString());
 			}
 		}
 
@@ -78,7 +78,7 @@ using System.Windows;
 			Accessibility dpkAccess = generateThis.FieldSymbol.DeclaredAccessibility;
 
 			// If this is a DependencyPropertyKey, then we may need to create the corresponding DependencyProperty field.
-			// The DependencyProperty field is required for TemplateBindings in XAML.
+			// The DependencyProperty field is required for use with TemplateBindings in XAML.
 			if (generateThis.IsDpk)
 			{
 				ISymbol? dpMemberSymbol = generateThis.FieldSymbol.ContainingType.GetMembers(dpMemberName).FirstOrDefault();
