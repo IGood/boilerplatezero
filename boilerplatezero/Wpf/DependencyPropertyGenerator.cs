@@ -13,6 +13,8 @@ namespace Bpz.Wpf
 	{
 		private const string HelpLinkUri = "https://github.com/IGood/boilerplatezero/blob/main/README.md";
 
+		private bool useNullableContext;
+
 		public void Initialize(GeneratorInitializationContext context)
 		{
 			//DebugMe.Go();
@@ -22,6 +24,9 @@ namespace Bpz.Wpf
 		public void Execute(GeneratorExecutionContext context)
 		{
 			//DebugMe.Go();
+
+			this.useNullableContext = (context.ParseOptions as CSharpParseOptions)?.LanguageVersion >= LanguageVersion.CSharp8;
+
 			var syntaxReceiver = (SyntaxReceiver)context.SyntaxReceiver!;
 
 			var namespaces = UpdateAndFilterGenerationRequests(context, syntaxReceiver.GenerationRequests)
@@ -53,11 +58,7 @@ namespace Bpz.Wpf
 
 			if (sourceBuilder.Length != 0)
 			{
-				string? maybeNullableContext = null;
-				if ((context.ParseOptions as CSharpParseOptions)?.LanguageVersion >= LanguageVersion.CSharp8)
-				{
-					maybeNullableContext = "#nullable enable";
-				}
+				string? maybeNullableContext = this.useNullableContext ? "#nullable enable" : null;
 
 				sourceBuilder.Insert(0,
 $@"//------------------------------------------------------------------------------
@@ -76,7 +77,7 @@ using System.Windows;
 			}
 		}
 
-		private static void ApppendSource(GeneratorExecutionContext context, StringBuilder sourceBuilder, GenerationDetails generateThis)
+		private void ApppendSource(GeneratorExecutionContext context, StringBuilder sourceBuilder, GenerationDetails generateThis)
 		{
 			string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
 			string dpMemberName = propertyName + "Property";
@@ -236,7 +237,8 @@ $@"		private static partial class {genClassDecl} {{
 			}
 			else
 			{
-				sourceBuilder.AppendLine("PropertyMetadata? typeMetadata = null;");
+				string nullLiteral = this.useNullableContext ? "null!" : "null";
+				sourceBuilder.AppendLine($"PropertyMetadata typeMetadata = {nullLiteral};");
 			}
 
 			string a = generateThis.IsAttached ? "Attached" : "";
