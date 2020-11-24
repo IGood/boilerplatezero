@@ -15,6 +15,7 @@ namespace Bpz.Test
 		[TestCase("MinimalDP3.cs")]
 		[TestCase("MinimalDP4.cs")]
 		[TestCase("MinimalDP5.cs")]
+		[TestCase("MinimalDP6.cs")]
 		[TestCase("AttachedDP1.cs")]
 		public void MinimalDP(string resourceName)
 		{
