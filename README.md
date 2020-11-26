@@ -26,5 +26,5 @@ public static string GetBar(DependencyObject d) => (string)d.GetValue(BarPropert
 private static void SetBar(DependencyObject d, string value) => d.SetValue(BarPropertyKey, value);
 
 // Attached property written with BPZ:
-private static readonly DependencyPropertyKey FooPropertyKey = GenAttached.Bar<string>();
+private static readonly DependencyPropertyKey BarPropertyKey = GenAttached.Bar<string>();
 ```
