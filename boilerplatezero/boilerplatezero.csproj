@@ -7,8 +7,11 @@
   </PropertyGroup>
   
   <PropertyGroup>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <DevelopmentDependency>true</DevelopmentDependency>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
     <PackageId>boilerplatezero</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>IGood</Authors>
     <Company />
     <Copyright>Copyright (c) Ian Good</Copyright>
@@ -22,7 +25,6 @@ Included generators:
     <RepositoryUrl>https://github.com/IGood/boilerplatezero.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>bpz,source generator,wpf,dependency properties</PackageTags>
-    <DevelopmentDependency>true</DevelopmentDependency>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,5 +38,10 @@ Included generators:
   <ItemGroup>
     <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
     <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Package the generator in the analyzer directory of the nuget package -->
+    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 </Project>
