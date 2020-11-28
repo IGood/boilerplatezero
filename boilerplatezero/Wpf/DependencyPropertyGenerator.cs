@@ -11,7 +11,7 @@ namespace Bpz.Wpf
 	[Generator]
 	public class DependencyPropertyGenerator : ISourceGenerator
 	{
-		private const string HelpLinkUri = "https://github.com/IGood/boilerplatezero/blob/main/README.md";
+		private const string HelpLinkUri = "https://github.com/IGood/boilerplatezero#readme";
 
 		private bool useNullableContext;
 
