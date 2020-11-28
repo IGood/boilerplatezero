@@ -111,7 +111,7 @@ namespace Goodies
   protected static readonly DependencyProperty FooProperty = FooPropertyKey.DependencyProperty;
 
   // Instance field `BarProperty` is not defined, so it will be generated.
-  private static readonly DependencyPropertyKey BarPropertyKey = GenAttached.Bar<Guid>();
+  private static readonly DependencyPropertyKey BarPropertyKey = Gen.Bar<Guid>();
 
   // 🤖 generated
   protected float Foo
