@@ -25,6 +25,7 @@ Included generators:
     <RepositoryUrl>https://github.com/IGood/boilerplatezero.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>bpz,source generator,wpf,dependency properties</PackageTags>
+    <PackageIcon>bpz logo dark.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -43,5 +44,9 @@ Included generators:
   <ItemGroup>
     <!-- Package the generator in the analyzer directory of the nuget package -->
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="..\product\bpz logo dark.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
   </ItemGroup>
 </Project>
