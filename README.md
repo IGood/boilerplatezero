@@ -1,6 +1,6 @@
 # boilerplatezero
 
-boilerplatezero (BPZ) is a collection of C# source generators that simplifies the code that needs to be written for common C# patterns.
+boilerplatezero (BPZ) is a collection of C# source generators that simplify the code required for common C# patterns.
 
 ----
 
@@ -92,6 +92,7 @@ namespace Goodies
 - generates instance properties for dependency properties
 - generates static methods for attached properties
 - optional default values
+- supports generic owner types
 - <details><summary>supports nullable types</summary>
 
   ```csharp
