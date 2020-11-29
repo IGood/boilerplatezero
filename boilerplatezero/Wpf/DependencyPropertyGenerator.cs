@@ -42,7 +42,12 @@ namespace Bpz.Wpf
 
 				foreach (var classGroup in namespaceGroup)
 				{
-					string className = classGroup.Key!.Name;
+					// Don't use `ISymbol.Name` because that won't get generic parameters (if they exist).
+					// Something like...
+					//	TestMe<TKey, TValue>
+					string className = classGroup.Key!.ToDisplayString();
+					int indexOfDot = className.LastIndexOf('.');
+					className = className.Substring(indexOfDot + 1);
 					sourceBuilder.AppendLine($"\tpartial class {className} {{");
 
 					foreach (var generateThis in classGroup)
@@ -223,13 +228,13 @@ $@"		{maybeDox}{propertyAccess} {propertyTypeName} {propertyName} {{
 				: (generateThis.IsAttached ? "an attached property" : "a dependency property");
 			string returnType = generateThis.FieldSymbol.Type.Name;
 			bool hasDefaultValue = defaultValueArgNode != null;
-			string parameter = hasDefaultValue ? "T defaultValue" : "";
+			string parameter = hasDefaultValue ? "__T defaultValue" : "";
 			sourceBuilder.AppendLine(
 $@"		private static partial class {genClassDecl} {{
 			/// <summary>
 			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{propertyTypeName}""/>.{moreDox}
 			/// </summary>
-			public static {returnType} {propertyName}<T>({parameter}) {{");
+			public static {returnType} {propertyName}<__T>({parameter}) {{");
 
 			if (hasDefaultValue)
 			{
@@ -245,7 +250,7 @@ $@"		private static partial class {genClassDecl} {{
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
 			string ownerTypeName = generateThis.FieldSymbol.ContainingType.Name;
 			sourceBuilder.AppendLine(
-$@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(T), typeof({ownerTypeName}), typeMetadata);
+$@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), typeMetadata);
 			}}
 		}}");
 		}
