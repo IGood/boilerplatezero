@@ -16,8 +16,11 @@ namespace Bpz.Test
 		[TestCase("MinimalDP4.cs")]
 		[TestCase("MinimalDP5.cs")]
 		[TestCase("MinimalDP6.cs")]
+		[TestCase("MinimalDP7.cs")]
 		[TestCase("AttachedDP1.cs")]
-		public void MinimalDP(string resourceName)
+		[TestCase("AttachedDP2.cs")]
+		[TestCase("PropertyChangedHandlers.cs")]
+		public void GenStuff(string resourceName)
 		{
 			using var source = Resources.GetEmbeddedResource(resourceName);
 			var sourceText = SourceText.From(source);

@@ -22,6 +22,7 @@ namespace MinimalDP
 
 		public static readonly DependencyProperty Wid1Property = Gen.Wid1<Widget>();
 		public static readonly DependencyProperty Wid2Property = Gen.Wid2<Widget?>();
+		public static readonly DependencyProperty Wid3Property = Gen.Wid3((Widget?)null);
 	}
 
 	public struct Point

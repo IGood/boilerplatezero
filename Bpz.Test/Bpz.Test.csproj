@@ -10,16 +10,22 @@
 
   <ItemGroup>
     <Compile Remove="SourceText\AttachedDP1.cs" />
+    <Compile Remove="SourceText\AttachedDP2.cs" />
     <Compile Remove="SourceText\MinimalDP1.cs" />
     <Compile Remove="SourceText\MinimalDP2.cs" />
     <Compile Remove="SourceText\MinimalDP3.cs" />
     <Compile Remove="SourceText\MinimalDP4.cs" />
     <Compile Remove="SourceText\MinimalDP5.cs" />
     <Compile Remove="SourceText\MinimalDP6.cs" />
+    <Compile Remove="SourceText\MinimalDP7.cs" />
+    <Compile Remove="SourceText\PropertyChangedHandlers.cs" />
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="SourceText\AttachedDP2.cs" />
     <EmbeddedResource Include="SourceText\AttachedDP1.cs" />
+    <EmbeddedResource Include="SourceText\MinimalDP7.cs" />
+    <EmbeddedResource Include="SourceText\PropertyChangedHandlers.cs" />
     <EmbeddedResource Include="SourceText\MinimalDP6.cs" />
     <EmbeddedResource Include="SourceText\MinimalDP5.cs" />
     <EmbeddedResource Include="SourceText\MinimalDP4.cs" />
