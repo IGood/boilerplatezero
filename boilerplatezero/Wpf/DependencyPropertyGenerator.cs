@@ -42,13 +42,9 @@ namespace Bpz.Wpf
 
 				foreach (var classGroup in namespaceGroup)
 				{
-					// Don't use `ISymbol.Name` because that won't get generic parameters (if they exist).
-					// Something like...
-					//	TestMe<TKey, TValue>
-					string className = classGroup.Key!.ToDisplayString();
-					int indexOfDot = className.LastIndexOf('.');
-					className = className.Substring(indexOfDot + 1);
-					sourceBuilder.AppendLine($"\tpartial class {className} {{");
+					string? maybeStatic = classGroup.Key!.IsStatic ? "static" : null;
+					string className = GetTypeName((INamedTypeSymbol)classGroup.Key);
+					sourceBuilder.AppendLine($"\t{maybeStatic} partial class {className} {{");
 
 					foreach (var generateThis in classGroup)
 					{
@@ -248,7 +244,7 @@ $@"		private static partial class {genClassDecl} {{
 
 			string a = generateThis.IsAttached ? "Attached" : "";
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
-			string ownerTypeName = generateThis.FieldSymbol.ContainingType.Name;
+			string ownerTypeName = GetTypeName(generateThis.FieldSymbol.ContainingType);
 			sourceBuilder.AppendLine(
 $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), typeMetadata);
 			}}
@@ -304,6 +300,18 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 
 			ancestorSyntaxNode = null;
 			return false;
+		}
+
+		private static string GetTypeName(INamedTypeSymbol typeSymbol)
+		{
+			if (typeSymbol.IsGenericType)
+			{
+				string name = typeSymbol.ToDisplayString();
+				int indexOfDot = name.LastIndexOf('.');
+				return name.Substring(indexOfDot + 1);
+			}
+
+			return typeSymbol.Name;
 		}
 
 		private class SyntaxReceiver : ISyntaxReceiver
