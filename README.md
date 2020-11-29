@@ -1,4 +1,7 @@
-# boilerplatezero
+# ![Logo](product/bpz%20logo%20dark.png) boilerplatezero (BPZ)
+
+[![NuGet version (boilerplatezero)](https://img.shields.io/nuget/v/boilerplatezero.svg?style=flat-square)](https://www.nuget.org/packages/boilerplatezero/)
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](/LICENSE)
 
 boilerplatezero (BPZ) is a collection of C# source generators that simplify the code required for common C# patterns.
 
@@ -147,3 +150,9 @@ namespace Goodies
   public static void SetIsFancy(Goodies.Widget d, bool value) => d.SetValue(IsFancyProperty, value);
   ```
   </details>
+
+----
+
+### 🐛 Known Issues
+
+related: Source Generator support for WPF project blocked? [#3404](https://github.com/dotnet/wpf/issues/3404)
