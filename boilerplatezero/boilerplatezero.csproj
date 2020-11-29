@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Bpz</RootNamespace>
   </PropertyGroup>
-  
+
   <PropertyGroup>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <DevelopmentDependency>true</DevelopmentDependency>
@@ -17,7 +17,7 @@
     <Copyright>Copyright (c) Ian Good</Copyright>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Description>boilerplatezero (BPZ) is a collection of source generators.
+    <Description>boilerplatezero (BPZ) is a collection of C# source generators that simplify the code required for common C# patterns.
 Included generators:
 - DependencyPropertyGenerator - generates idiomatic WPF dependency property code
     </Description>
@@ -44,9 +44,6 @@ Included generators:
   <ItemGroup>
     <!-- Package the generator in the analyzer directory of the nuget package -->
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-    <None Include="..\product\bpz logo dark.png">
-      <Pack>True</Pack>
-      <PackagePath></PackagePath>
-    </None>
+    <None Include="..\product\bpz logo dark.png" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 </Project>
