@@ -153,17 +153,16 @@ using System.Windows;
 				if (generateThis.MethodNameNode.Parent is MemberAccessExpressionSyntax memberAccessExpr &&
 					memberAccessExpr.Expression is GenericNameSyntax genClassNameNode)
 				{
-					genClassDecl = "GenAttached<TTarget> where TTarget : DependencyObject";
+					genClassDecl = "GenAttached<__TTarget> where __TTarget : DependencyObject";
 
 					var typeArgNode = genClassNameNode.TypeArgumentList.Arguments.FirstOrDefault();
 					if (typeArgNode != null)
 					{
 						var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
-						var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
-						if (typeInfo.Type != null)
+						generateThis.AttachmentNarrowingType = model.GetTypeInfo(typeArgNode, context.CancellationToken).Type;
+						if (generateThis.AttachmentNarrowingType != null)
 						{
-							generateThis.AttachmentNarrowingType = typeInfo.Type;
-							targetTypeName = typeInfo.Type.ToDisplayString();
+							targetTypeName = generateThis.AttachmentNarrowingType.ToDisplayString();
 							moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{targetTypeName}""/>";
 						}
 					}
@@ -387,32 +386,29 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 			return false;
 		}
 
+		/// <summary>
+		/// Gets the name of the type including generic type parameters (ex: "Widget&lt;TSomething&gt;").
+		/// </summary>
 		private static string GetTypeName(INamedTypeSymbol typeSymbol)
 		{
 			if (typeSymbol.IsGenericType)
 			{
 				string name = typeSymbol.ToDisplayString();
-				int indexOfDot = name.LastIndexOf('.');
+				int indexOfAngle = name.IndexOf('<');
+				int indexOfDot = name.LastIndexOf('.', indexOfAngle);
 				return name.Substring(indexOfDot + 1);
 			}
 
 			return typeSymbol.Name;
 		}
 
-		private static bool CanCastTo(ITypeSymbol checkMe, ITypeSymbol baseTypeSymbol)
+		/// <summary>
+		/// Returns <c>true</c> if <paramref name="checkThis"/> can be cast to <paramref name="baseTypeSymbol"/>;
+		/// otherwise, returns <c>false</c>.
+		/// </summary>
+		private static bool CanCastTo(ITypeSymbol checkThis, ITypeSymbol baseTypeSymbol)
 		{
-			do
-			{
-				if (checkMe.Equals(baseTypeSymbol, SymbolEqualityComparer.Default))
-				{
-					return true;
-				}
-
-				checkMe = checkMe.BaseType!;
-			}
-			while (checkMe != null);
-
-			return false;
+			return checkThis.Equals(baseTypeSymbol, SymbolEqualityComparer.Default) || (checkThis.BaseType != null && CanCastTo(checkThis.BaseType, baseTypeSymbol));
 		}
 
 		private class SyntaxReceiver : ISyntaxReceiver

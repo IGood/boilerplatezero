@@ -12,7 +12,7 @@ namespace PropsChanged
 		private static void OnBPropertyChanged(Butt self, DependencyPropertyChangedEventArgs e) { }
 
 		public static readonly DependencyProperty CProperty = Gen.C<int>();
-		private static void CChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) { }
+		private static void CChanged(object d, DependencyPropertyChangedEventArgs e) { }
 
 		public static readonly DependencyProperty DProperty = Gen.D<int>();
 		//private static void OnDChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) { }
@@ -22,6 +22,9 @@ namespace PropsChanged
 
 		public static readonly DependencyProperty FProperty = Gen.F<int>(456);
 		private static void OnFChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) { }
+
+		public static readonly DependencyProperty FProperty = GenAttached<Butt>.Name("None");
+		private static void NamePropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) { }
 
 		// void PropertyChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
 		// object CoerceValueCallback(DependencyObject d, object baseValue)
