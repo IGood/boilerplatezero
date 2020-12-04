@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿// Copyright © Ian Good
+
+using System.Diagnostics;
 
 namespace Bpz
 {
@@ -6,13 +8,13 @@ namespace Bpz
 	{
 		public static void Go()
 		{
-			if (!Debugger.IsAttached)
+			if (Debugger.IsAttached)
 			{
-				Debugger.Launch();
+				Debugger.Break();
 			}
 			else
 			{
-				Debugger.Break();
+				Debugger.Launch();
 			}
 		}
 	}
