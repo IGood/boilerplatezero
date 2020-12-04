@@ -14,7 +14,8 @@ Luckily, dependency properties (and attached properties) always follow the same 
 As such, this kind of boilerplate code is the perfect candidate for a source generator.
 
 The dependency property generator in BPZ works by identifying `DependencyProperty` and `DependencyPropertyKey` fields that are initialized with calls to appropriately-name `Gen` or `GenAttached` methods.<br>
-When this happens, the source generator adds private static classes as nested types inside your class &amp; implements the dependency property for you.
+When this happens, the source generator adds private static classes as nested types inside your class &amp; implements the dependency property for you.<br>
+Additionally, if an appropriate property-changed handler method is found, then it will be used during registration.
 
 - Jump to: [Generated Code Example](#dpgenerated)
 - Jump to: [Features List](#dpfeatures)
@@ -51,7 +52,8 @@ private static readonly DependencyPropertyKey BarPropertyKey = GenAttached.Bar<s
 ### <a name="dpgenerated"></a>🛠 Generated Code
 
 Here's an example of hand-written code &amp; the corresponding generated code.<br>
-Note that the default value for the dependency property is specified in the user's code &amp; the documentation comment on `IdPropertyKey` is copied to the generated `Id` property.
+Note that the default value for the dependency property is specified in the user's code &amp; included in the property metadata along with the appropriate property-changed handler.<br>
+The documentation comment on `IdPropertyKey` is copied to the generated `Id` property.
 
 ```csharp
 // 👩‍💻 Widget.cs
@@ -61,6 +63,16 @@ namespace Goodies
     {
         /// <Summary>Gets the ID of this instance.</Summary>
         protected static readonly DependencyPropertyKey IdPropertyKey = Gen.Id("<unset>");
+
+        private static void IdPropertyChanged(Widget self, DependencyPropertyChangedEventArgs e)
+        {
+            // This method will be used as the property-changed callback during registration!
+            // It was selected because...
+            // - its name contains "Id" & ends with "Changed"
+            // - it is `static` with return type `void`
+            // - the type of parameter 0 is compatible with the owner type
+            // - the type of parameter 1 is DependencyPropertyChangedEventArgs
+        }
     }
 }
 
@@ -82,8 +94,10 @@ namespace Goodies
         {
             public static DependencyPropertyKey Id<T>(T defaultValue)
             {
-                PropertyMetadata metadata = new PropertyMetadata(defaultValue);
-                return DependencyProperty.RegisterReadOnly("Id", typeof(T), typeof(Widget), metadata);
+                PropertyMetadata metadata = new PropertyMetadata(
+                    defaultValue,
+                    (d, e) => IdPropertyChanged((Goodies.Widget)d, e));
+                return DependencyProperty.RegisterReadOnly("Id", typeof(__T), typeof(Widget), metadata);
             }
         }
     }
@@ -95,6 +109,22 @@ namespace Goodies
 - generates instance properties for dependency properties
 - generates static methods for attached properties
 - optional default values
+- <details><summary>detects suitable property-changed handlers</summary>
+
+  ```csharp
+  // 👩‍💻 user
+  public static readonly DependencyProperty SeasonProperty = Gen.Season("autumn");
+  private static void SeasonPropertyChanged(Widget self, DependencyPropertyChangedEventArgs e)
+  {
+      // This method will be used as the property-changed callback during registration!
+      // It was selected because...
+      // - its name contains "Season" & ends with "Changed"
+      // - it is `static` with return type `void`
+      // - the type of parameter 0 is compatible with the owner type
+      // - the type of parameter 1 is DependencyPropertyChangedEventArgs
+  }
+  ```
+  <details>
 - supports generic owner types
 - <details><summary>supports nullable types</summary>
 
