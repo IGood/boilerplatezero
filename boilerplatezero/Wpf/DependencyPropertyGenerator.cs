@@ -1,6 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -48,7 +49,7 @@ namespace Bpz.Wpf
 
 					foreach (var generateThis in classGroup)
 					{
-						ApppendSource(context, sourceBuilder, generateThis);
+						this.ApppendSource(context, sourceBuilder, generateThis);
 					}
 
 					sourceBuilder.AppendLine("\t}");
@@ -152,16 +153,16 @@ using System.Windows;
 				if (generateThis.MethodNameNode.Parent is MemberAccessExpressionSyntax memberAccessExpr &&
 					memberAccessExpr.Expression is GenericNameSyntax genClassNameNode)
 				{
-					genClassDecl = "GenAttached<TTarget> where TTarget : DependencyObject";
+					genClassDecl = "GenAttached<__TTarget> where __TTarget : DependencyObject";
 
 					var typeArgNode = genClassNameNode.TypeArgumentList.Arguments.FirstOrDefault();
 					if (typeArgNode != null)
 					{
 						var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
-						var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
-						targetTypeName = typeInfo.Type?.ToDisplayString();
-						if (targetTypeName != null)
+						generateThis.AttachmentNarrowingType = model.GetTypeInfo(typeArgNode, context.CancellationToken).Type;
+						if (generateThis.AttachmentNarrowingType != null)
 						{
+							targetTypeName = generateThis.AttachmentNarrowingType.ToDisplayString();
 							moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{targetTypeName}""/>";
 						}
 					}
@@ -232,23 +233,106 @@ $@"		private static partial class {genClassDecl} {{
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameter}) {{");
 
-			if (hasDefaultValue)
-			{
-				sourceBuilder.AppendLine("PropertyMetadata typeMetadata = new PropertyMetadata(defaultValue);");
-			}
-			else
-			{
-				string nullLiteral = this.useNullableContext ? "null!" : "null";
-				sourceBuilder.AppendLine($"PropertyMetadata typeMetadata = {nullLiteral};");
-			}
+			this.ApppendPropertyMetadata(context, sourceBuilder, generateThis, hasDefaultValue);
 
 			string a = generateThis.IsAttached ? "Attached" : "";
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
 			string ownerTypeName = GetTypeName(generateThis.FieldSymbol.ContainingType);
 			sourceBuilder.AppendLine(
-$@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), typeMetadata);
+$@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata);
 			}}
 		}}");
+		}
+
+		/// <summary>
+		/// Appends source text that declares the property metadata variable named "metadata".
+		/// Accounts for whether a default value exists.
+		/// Accounts for whether a compatible property-changed handler exists.
+		/// </summary>
+		private void ApppendPropertyMetadata(GeneratorExecutionContext context, StringBuilder sourceBuilder, GenerationDetails generateThis, bool hasDefaultValue)
+		{
+			INamedTypeSymbol ownerType = generateThis.FieldSymbol.ContainingType;
+			string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
+
+			// Looking for methods like...
+			//  FooPropertyChanged
+			//  OnFooChanged
+			var changeHandlerSymbol = (IMethodSymbol?)ownerType.GetMembers().FirstOrDefault(s =>
+				s.Kind == SymbolKind.Method &&
+				s.Name.EndsWith("Changed", StringComparison.Ordinal) &&
+				s.Name.IndexOf(propertyName, 0, s.Name.Length - "Changed".Length, StringComparison.Ordinal) >= 0
+			);
+
+			// See if we have a property-changed handler.
+			// For now, only accept methods like...
+			//  static void FooPropertyChanged(Widget self, DependencyPropertyChangedEventArgs e) { ... }
+			string? changeHandler = null;
+			if (changeHandlerSymbol?.Parameters.Length == 2 &&
+				changeHandlerSymbol.IsStatic &&
+				changeHandlerSymbol.ReturnType.SpecialType == SpecialType.System_Void)
+			{
+				INamedTypeSymbol doTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.DependencyObject")!;
+				INamedTypeSymbol argsTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyChangedEventArgs")!;
+
+				ITypeSymbol p0TypeSymbol = changeHandlerSymbol.Parameters[0].Type;
+				ITypeSymbol p1TypeSymbol = changeHandlerSymbol.Parameters[1].Type;
+
+				if (p1TypeSymbol.Equals(argsTypeSymbol, SymbolEqualityComparer.Default))
+				{
+					if (p0TypeSymbol.Equals(doTypeSymbol, SymbolEqualityComparer.Default))
+					{
+						// Signature matches `System.Windows.PropertyChangedCallback`, so we can just use the method name.
+						changeHandler = changeHandlerSymbol.Name;
+					}
+					else
+					{
+						// Need to ensure type of p0 is valid.
+						ITypeSymbol derivedTypeSymbol;
+						if (generateThis.IsAttached)
+						{
+							// Narrowing type must be equal to, or derived from, the p0 type.
+							derivedTypeSymbol = generateThis.AttachmentNarrowingType ?? doTypeSymbol;
+						}
+						else
+						{
+							// Owner type must be equal to, or derived from, the p0 type.
+							derivedTypeSymbol = ownerType;
+						}
+
+						if (CanCastTo(derivedTypeSymbol, p0TypeSymbol))
+						{
+							// Something like...
+							//  (d, e) => FooPropertyChanged((Goodies.Widget)d, e)
+							changeHandler = $"(d, e) => {changeHandlerSymbol.Name}(({p0TypeSymbol.ToDisplayString()})d, e)";
+						}
+					}
+				}
+			}
+
+			if (hasDefaultValue)
+			{
+				if (changeHandler != null)
+				{
+					// Has default value & callback.
+					sourceBuilder.AppendLine($"PropertyMetadata metadata = new PropertyMetadata(defaultValue, {changeHandler});");
+					return;
+				}
+
+				// Has default value.
+				sourceBuilder.AppendLine("PropertyMetadata metadata = new PropertyMetadata(defaultValue);");
+				return;
+			}
+
+			if (changeHandler != null)
+			{
+				// Has callback.
+				sourceBuilder.AppendLine($"PropertyMetadata metadata = new PropertyMetadata({changeHandler});");
+				return;
+			}
+
+			// No default value & no callback.
+			string nullLiteral = this.useNullableContext ? "null!" : "null";
+			sourceBuilder.AppendLine($"PropertyMetadata metadata = {nullLiteral};");
 		}
 
 		private static IEnumerable<GenerationDetails> UpdateAndFilterGenerationRequests(GeneratorExecutionContext context, IEnumerable<GenerationDetails> requests)
@@ -302,16 +386,29 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 			return false;
 		}
 
+		/// <summary>
+		/// Gets the name of the type including generic type parameters (ex: "Widget&lt;TSomething&gt;").
+		/// </summary>
 		private static string GetTypeName(INamedTypeSymbol typeSymbol)
 		{
 			if (typeSymbol.IsGenericType)
 			{
 				string name = typeSymbol.ToDisplayString();
-				int indexOfDot = name.LastIndexOf('.');
+				int indexOfAngle = name.IndexOf('<');
+				int indexOfDot = name.LastIndexOf('.', indexOfAngle);
 				return name.Substring(indexOfDot + 1);
 			}
 
 			return typeSymbol.Name;
+		}
+
+		/// <summary>
+		/// Returns <c>true</c> if <paramref name="checkThis"/> can be cast to <paramref name="baseTypeSymbol"/>;
+		/// otherwise, returns <c>false</c>.
+		/// </summary>
+		private static bool CanCastTo(ITypeSymbol checkThis, ITypeSymbol baseTypeSymbol)
+		{
+			return checkThis.Equals(baseTypeSymbol, SymbolEqualityComparer.Default) || (checkThis.BaseType != null && CanCastTo(checkThis.BaseType, baseTypeSymbol));
 		}
 
 		private class SyntaxReceiver : ISyntaxReceiver
@@ -361,11 +458,12 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 			public IFieldSymbol FieldSymbol { get; set; } = null!;
 			public bool IsDpk { get; set; }
 			public bool IsAttached { get; }
+			public ITypeSymbol? AttachmentNarrowingType { get; set; }
 		}
 
 		private static class Diagnostics
 		{
-			private static readonly DiagnosticDescriptor MismatchedIdentifiersDescriptor = new DiagnosticDescriptor(
+			private static readonly DiagnosticDescriptor MismatchedIdentifiersError = new DiagnosticDescriptor(
 				"BPZ0001",
 				"Mismatched identifiers",
 				"Field name '{0}' and method name '{1}' do not match. Expected '{2} = {3}'.",
@@ -379,7 +477,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 			public static Diagnostic MismatchedIdentifiers(IFieldSymbol fieldSymbol, string methodName, string expectedFieldName, string initializer)
 			{
 				return Diagnostic.Create(
-					MismatchedIdentifiersDescriptor,
+					MismatchedIdentifiersError,
 					fieldSymbol.Locations[0],
 					fieldSymbol.Name,
 					methodName,
@@ -387,7 +485,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 					initializer);
 			}
 
-			private static readonly DiagnosticDescriptor UnexpectedFieldTypeDescriptor = new DiagnosticDescriptor(
+			private static readonly DiagnosticDescriptor UnexpectedFieldTypeError = new DiagnosticDescriptor(
 				"BPZ1001",
 				"Unexpected field type",
 				"'{0}.{1}' has unexpected type '{2}'. Expected 'System.Windows.DependencyProperty' or 'System.Windows.DependencyPropertyKey'.",
@@ -401,7 +499,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 			public static Diagnostic UnexpectedFieldType(IFieldSymbol fieldSymbol)
 			{
 				return Diagnostic.Create(
-					UnexpectedFieldTypeDescriptor,
+					UnexpectedFieldTypeError,
 					fieldSymbol.Locations[0],
 					fieldSymbol.ContainingType.Name,
 					fieldSymbol.Name,
