@@ -13,7 +13,7 @@ Dependency properties in WPF are great! However, they do require quite a bit of 
 Luckily, dependency properties (and attached properties) always follow the same pattern when implemented.<br>
 As such, this kind of boilerplate code is the perfect candidate for a source generator.
 
-The dependency property generator in BPZ works by identifying `DependencyProperty` and `DependencyPropertyKey` fields that are initialized with calls to appropriately-name `Gen` or `GenAttached` methods.<br>
+The dependency property generator in BPZ works by identifying `DependencyProperty` and `DependencyPropertyKey` fields that are initialized with calls to appropriately-named `Gen` or `GenAttached` methods.<br>
 When this happens, the source generator adds private static classes as nested types inside your class &amp; implements the dependency property for you.<br>
 Additionally, if an appropriate property-changed handler method is found, then it will be used during registration.
 
@@ -32,7 +32,7 @@ public string Foo
     private set => this.SetValue(FooPropertyKey, value);
 }
 
-// Dependency property written with BPZ:
+// Dependency property written with BPZ (new hotness):
 private static readonly DependencyPropertyKey FooPropertyKey = Gen.Foo<string>();
 ```
 
@@ -45,7 +45,7 @@ public static readonly DependencyProperty BarProperty = BarPropertyKey.Dependenc
 public static string GetBar(DependencyObject d) => (string)d.GetValue(BarProperty);
 private static void SetBar(DependencyObject d, string value) => d.SetValue(BarPropertyKey, value);
 
-// Attached property written with BPZ:
+// Attached property written with BPZ (new hotness):
 private static readonly DependencyPropertyKey BarPropertyKey = GenAttached.Bar<string>();
 ```
 
