@@ -8,3 +8,8 @@
 # Visual Studio [Code]
 .vs/
 .vscode/
+
+# Local test stuff
+ConsoleApp*/
+WpfApp*/
+boilerplatezero dbg.sln
