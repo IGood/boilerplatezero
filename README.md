@@ -19,9 +19,9 @@ Additionally...
 - If an appropriate property-changed handler method is found, then it will be used during registration.
 - If an appropriate coercion method is found, then it will be used during registration.
 
-🔗 Jump to
-- [🤖 Generated Code Example](#dpgenerated)
-- [✨ Features List](#dpfeatures)
+🔗 Jump to...
+- [🤖 Generated Code Example](#-generated-code)
+- [✨ Features List](#-features)
 - [🐛 Known Issues List](#-known-issues)
 
 ### 🛠 Example Dependency Property
@@ -53,7 +53,7 @@ private static void SetBar(DependencyObject d, string value) => d.SetValue(BarPr
 private static readonly DependencyPropertyKey BarPropertyKey = GenAttached.Bar<string>();
 ```
 
-### <a name="dpgenerated"></a>🤖 Generated Code
+### 🤖 Generated Code
 
 Here's an example of hand-written code &amp; the corresponding generated code.<br>
 Note that the default value for the dependency property is specified in the user's code &amp; included in the property metadata along with the appropriate property-changed handler.<br>
@@ -106,7 +106,7 @@ namespace Goodies
 }
 ```
 
-### <a name="dpfeatures"></a>✨ Features 
+### ✨ Features 
 
 - generates instance properties for dependency properties
 - generates static methods for attached properties
