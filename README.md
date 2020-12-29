@@ -15,10 +15,13 @@ As such, this kind of boilerplate code is the perfect candidate for a source gen
 
 The dependency property generator in BPZ works by identifying `DependencyProperty` and `DependencyPropertyKey` fields that are initialized with calls to appropriately-named `Gen` or `GenAttached` methods.<br>
 When this happens, the source generator adds private static classes as nested types inside your class &amp; implements the dependency property for you.<br>
-Additionally, if an appropriate property-changed handler method is found, then it will be used during registration.
+Additionally...
+- If an appropriate property-changed handler method is found, then it will be used during registration.
+- If an appropriate coercion method is found, then it will be used during registration.
 
-- Jump to: [Generated Code Example](#dpgenerated)
-- Jump to: [Features List](#dpfeatures)
+Jump to
+- [🤖 Generated Code Example](#dpgenerated)
+- [✨ Features List](#dpfeatures)
 
 ### 🛠 Example Dependency Property
 
@@ -49,7 +52,7 @@ private static void SetBar(DependencyObject d, string value) => d.SetValue(BarPr
 private static readonly DependencyPropertyKey BarPropertyKey = GenAttached.Bar<string>();
 ```
 
-### <a name="dpgenerated"></a>🛠 Generated Code
+### <a name="dpgenerated"></a>🤖 Generated Code
 
 Here's an example of hand-written code &amp; the corresponding generated code.<br>
 Note that the default value for the dependency property is specified in the user's code &amp; included in the property metadata along with the appropriate property-changed handler.<br>
@@ -92,11 +95,9 @@ namespace Goodies
 
         private static partial class Gen
         {
-            public static DependencyPropertyKey Id<T>(T defaultValue)
+            public static DependencyPropertyKey Id<__T>(__T defaultValue)
             {
-                PropertyMetadata metadata = new PropertyMetadata(
-                    defaultValue,
-                    (d, e) => IdPropertyChanged((Goodies.Widget)d, e));
+                PropertyMetadata metadata = new PropertyMetadata(defaultValue, (d, e) => IdPropertyChanged((Goodies.Widget)d, e), null);
                 return DependencyProperty.RegisterReadOnly("Id", typeof(__T), typeof(Widget), metadata);
             }
         }
@@ -122,6 +123,24 @@ namespace Goodies
       // - it is `static` with return type `void`
       // - the type of parameter 0 is compatible with the owner type
       // - the type of parameter 1 is DependencyPropertyChangedEventArgs
+  }
+  ```
+  <details>
+- <details><summary>detects suitable value coercion handlers</summary>
+
+  ```csharp
+  // 👩‍💻 user
+  public static readonly DependencyProperty AgeProperty = Gen.Age(0);
+  private static int CoerceAge(Widget self, int baseValue)
+  {
+      // This method will be used as the value coercion method during registration!
+      // It was selected because...
+      // - its name is "Coerce" + the property name
+      // - it is `static`
+      // - the return type is compatible with the property type
+      // - the type of parameter 0 is compatible with the owner type
+      // - the type of parameter 1 is compatible with the property type
+      return (baseValue >= 0) ? baseValue : 0;
   }
   ```
   <details>
