@@ -72,7 +72,7 @@ namespace Goodies
         {
             // This method will be used as the property-changed callback during registration!
             // It was selected because...
-            // - its name contains "Id" & ends with "Changed"
+            // - its name contains the property name, "Id", & ends with "Changed"
             // - it is `static` with return type `void`
             // - the type of parameter 0 is compatible with the owner type
             // - the type of parameter 1 is DependencyPropertyChangedEventArgs
@@ -98,7 +98,10 @@ namespace Goodies
         {
             public static DependencyPropertyKey Id<__T>(__T defaultValue)
             {
-                PropertyMetadata metadata = new PropertyMetadata(defaultValue, (d, e) => IdPropertyChanged((Goodies.Widget)d, e), null);
+                PropertyMetadata metadata = new PropertyMetadata(
+                    defaultValue,
+                    (d, e) => IdPropertyChanged((Goodies.Widget)d, e),
+                    null);
                 return DependencyProperty.RegisterReadOnly("Id", typeof(__T), typeof(Widget), metadata);
             }
         }
@@ -120,7 +123,7 @@ namespace Goodies
   {
       // This method will be used as the property-changed callback during registration!
       // It was selected because...
-      // - its name contains "Season" & ends with "Changed"
+      // - its name contains the property name, "Season", & ends with "Changed"
       // - it is `static` with return type `void`
       // - the type of parameter 0 is compatible with the owner type
       // - the type of parameter 1 is DependencyPropertyChangedEventArgs
@@ -136,7 +139,7 @@ namespace Goodies
   {
       // This method will be used as the value coercion method during registration!
       // It was selected because...
-      // - its name is "Coerce" + the property name
+      // - its name is "Coerce" + the property name, "Age"
       // - it is `static`
       // - the return type is compatible with the property type
       // - the type of parameter 0 is compatible with the owner type
