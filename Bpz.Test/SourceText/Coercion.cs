@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -20,6 +21,12 @@ namespace PropsChanged
 
 		public static readonly DependencyProperty FProperty = Gen.F<int>(456);
 		private static object CoerceF(DependencyObject d, int baseValue) { return baseValue; }
+
+		public static readonly DependencyProperty GProperty = Gen.G<int>();
+		private static int CoerceG(DependencyObject d, object baseValue) { return baseValue; }
+
+		public static readonly DependencyProperty HProperty = Gen.H<string>();
+		private static IComparable CoerceH(DependencyObject d, IComparable baseValue) { return baseValue; }
 
 		public static readonly DependencyProperty NameProperty = GenAttached.Name("None");
 		private static string CoerceName(DependencyObject d, string baseValue) { return baseValue; }

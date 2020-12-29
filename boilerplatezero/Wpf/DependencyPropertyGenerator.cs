@@ -32,10 +32,10 @@ namespace Bpz.Wpf
 		/// </summary>
 		private bool useNullableContext;
 
-		// These will be initialized before first use with `Object`, `DependencyObject`, & `DependencyPropertyChangedEventArgs`, respectively.
-		private INamedTypeSymbol objTypeSymbol = null!;
-		private INamedTypeSymbol doTypeSymbol = null!;
-		private INamedTypeSymbol argsTypeSymbol = null!;
+		// These will be initialized before first.
+		private INamedTypeSymbol objTypeSymbol = null!; // System.Object
+		private INamedTypeSymbol doTypeSymbol = null!;  // System.Windows.DependencyObject
+		private INamedTypeSymbol argsTypeSymbol = null!;// System.Windows.DependencyPropertyChangedEventArgs
 
 		public void Initialize(GeneratorInitializationContext context)
 		{
@@ -145,7 +145,6 @@ using System.Windows;
 			// As a safety precaution - ensure that the generated code is always valid by defaulting to use `object`.
 			// But really, if we were unable to get the type, that means the user's code doesn't compile anyhow.
 			generateThis.PropertyType = this.objTypeSymbol;
-			generateThis.PropertyTypeName = "object";
 			if (generateThis.MethodNameNode is GenericNameSyntax genMethodNameNode)
 			{
 				var typeArgNode = genMethodNameNode.TypeArgumentList.Arguments.FirstOrDefault();
@@ -154,13 +153,12 @@ using System.Windows;
 					var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
 					var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
 					generateThis.PropertyType = typeInfo.Type ?? this.objTypeSymbol;
-					generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
 
-					// A nullable ref type like `string?` loses its question mark here. Let's put it back.
+					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
 					// Note: Nullable value types like `int?` do not have this issue.
-					if (generateThis.PropertyTypeName.Last() != '?' && typeArgNode is NullableTypeSyntax)
+					if (generateThis.PropertyType.IsReferenceType && typeArgNode is NullableTypeSyntax)
 					{
-						generateThis.PropertyTypeName += '?';
+						generateThis.PropertyType = generateThis.PropertyType.WithNullableAnnotation(NullableAnnotation.Annotated);
 					}
 				}
 			}
@@ -171,9 +169,20 @@ using System.Windows;
 					var model = context.Compilation.GetSemanticModel(defaultValueArgNode.SyntaxTree);
 					var typeInfo = model.GetTypeInfo(defaultValueArgNode.Expression, context.CancellationToken);
 					generateThis.PropertyType = typeInfo.Type ?? this.objTypeSymbol;
-					generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
+
+					// Handle default value expressions like `(string?)null)`.
+					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
+					// Note: Nullable value types like `int?` do not have this issue.
+					if (generateThis.PropertyType.IsReferenceType &&
+						defaultValueArgNode.Expression is CastExpressionSyntax castNode &&
+						castNode.Type is NullableTypeSyntax)
+					{
+						generateThis.PropertyType = generateThis.PropertyType.WithNullableAnnotation(NullableAnnotation.Annotated);
+					}
 				}
 			}
+
+			generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
 
 			string genClassDecl;
 			string? moreDox = null;
@@ -318,50 +327,96 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 				}
 			}
 
-			// See if we have a property-changed handler.
-			// For now, only accept methods like...
+			// See if we have a property-changed handler like...
 			//	static void FooPropertyChanged(Widget self, DependencyPropertyChangedEventArgs e) { ... }
 			//	static void OnFooChanged(Widget self, DependencyPropertyChangedEventArgs e) { ... }
-			bool _TryGetChangeHandler(IMethodSymbol changeHandlerSymbol, out string changeHandler)
+			//	void FooChanged(DependencyPropertyChangedEventArgs e) { ... }
+			//	void OnFooChanged(string oldFoo, string newFoo) { ... }
+			bool _TryGetChangeHandler(IMethodSymbol methodSymbol, out string changeHandler)
 			{
-				string methodName = changeHandlerSymbol.Name;
-				if (methodName.EndsWith("Changed", StringComparison.Ordinal) &&
-					methodName.IndexOf(propertyName, 0, methodName.Length - "Changed".Length, StringComparison.Ordinal) >= 0 &&
-					changeHandlerSymbol.IsStatic &&
-					changeHandlerSymbol.ReturnsVoid &&
-					changeHandlerSymbol.Parameters.Length == 2)
+				if (methodSymbol.ReturnsVoid)
 				{
-					ITypeSymbol p0TypeSymbol = changeHandlerSymbol.Parameters[0].Type;
-					ITypeSymbol p1TypeSymbol = changeHandlerSymbol.Parameters[1].Type;
+					string methodName = methodSymbol.Name;
 
-					if (p1TypeSymbol.Equals(argsTypeSymbol, SymbolEqualityComparer.Default))
+					if (methodSymbol.IsStatic)
 					{
-						if (p0TypeSymbol.Equals(doTypeSymbol, SymbolEqualityComparer.Default))
+						if (methodSymbol.Parameters.Length == 2 &&
+							methodName.EndsWith("Changed", StringComparison.Ordinal) &&
+							methodName.IndexOf(propertyName, 0, methodName.Length - "Changed".Length, StringComparison.Ordinal) >= 0)
 						{
-							// Signature matches `System.Windows.PropertyChangedCallback`, so we can just use the method name.
-							changeHandler = changeHandlerSymbol.Name;
-							return true;
-						}
+							ITypeSymbol p0TypeSymbol = methodSymbol.Parameters[0].Type;
+							ITypeSymbol p1TypeSymbol = methodSymbol.Parameters[1].Type;
 
-						// Need to ensure type of p0 is valid.
-						ITypeSymbol derivedTypeSymbol;
-						if (generateThis.IsAttached)
-						{
-							// Narrowing type must be equal to, or derived from, the p0 type.
-							derivedTypeSymbol = generateThis.AttachmentNarrowingType ?? doTypeSymbol;
-						}
-						else
-						{
-							// Owner type must be equal to, or derived from, the p0 type.
-							derivedTypeSymbol = ownerType;
-						}
+							if (p1TypeSymbol.Equals(argsTypeSymbol, SymbolEqualityComparer.Default))
+							{
+								if (p0TypeSymbol.Equals(doTypeSymbol, SymbolEqualityComparer.Default))
+								{
+									// Signature matches `System.Windows.PropertyChangedCallback`, so we can just use the method name.
+									changeHandler = methodSymbol.Name;
+									return true;
+								}
 
-						if (CanCastTo(derivedTypeSymbol, p0TypeSymbol))
+								// Need to ensure type of p0 is valid.
+								ITypeSymbol derivedTypeSymbol;
+								if (generateThis.IsAttached)
+								{
+									// Narrowing type must be equal to, or derived from, the p0 type.
+									derivedTypeSymbol = generateThis.AttachmentNarrowingType ?? doTypeSymbol;
+								}
+								else
+								{
+									// Owner type must be equal to, or derived from, the p0 type.
+									derivedTypeSymbol = ownerType;
+								}
+
+								if (CanCastTo(derivedTypeSymbol, p0TypeSymbol))
+								{
+									// Something like...
+									//	(d, e) => FooPropertyChanged((Goodies.Widget)d, e)
+									changeHandler = $"(d, e) => {methodName}(({p0TypeSymbol.ToDisplayString()})d, e)";
+									return true;
+								}
+							}
+						}
+					}
+					// Not `static`:
+					else if (!generateThis.IsAttached && (methodName == $"On{propertyName}Changed" || methodName == $"{propertyName}Changed"))
+					{
+						// Instance methods with 2 parameters look like...
+						//	void OnFooChanged(int oldFoo, int newFoo) { ... }
+						if (methodSymbol.Parameters.Length == 2)
 						{
-							// Something like...
-							//	(d, e) => FooPropertyChanged((Goodies.Widget)d, e)
-							changeHandler = $"(d, e) => {methodName}(({p0TypeSymbol.ToDisplayString()})d, e)";
-							return true;
+							IParameterSymbol p0 = methodSymbol.Parameters[0];
+							IParameterSymbol p1 = methodSymbol.Parameters[1];
+
+							if (p0.Type.Equals(p1.Type, SymbolEqualityComparer.Default) &&
+								p0.Type.Equals(generateThis.PropertyType, SymbolEqualityComparer.Default) &&
+								p0.Name.StartsWith("old", StringComparison.OrdinalIgnoreCase) &&
+								p1.Name.StartsWith("new", StringComparison.OrdinalIgnoreCase))
+							{
+								string? maybeCastArgs = (generateThis.PropertyType.SpecialType != SpecialType.System_Object)
+									? $"({generateThis.PropertyTypeName})"
+									: null;
+
+								// Something like...
+								//	(d, e) => ((Goodies.Widget)d).OnFooChanged((int)e.OldValue, (int)e.NewValue)
+								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue)";
+								return true;
+							}
+						}
+						// Instance methods with 1 parameter look like...
+						//	void OnFooChanged(DependencyPropertyChangedEventArgs e) { ... }
+						else if (methodSymbol.Parameters.Length == 1)
+						{
+							ITypeSymbol p0TypeSymbol = methodSymbol.Parameters[0].Type;
+
+							if (p0TypeSymbol.Equals(argsTypeSymbol, SymbolEqualityComparer.Default))
+							{
+								// Something like...
+								//	(d, e) => ((Goodies.Widget)d).OnFooChanged(e)
+								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}(e)";
+								return true;
+							}
 						}
 					}
 				}
@@ -373,22 +428,21 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 			// See if we have a coercion handler like...
 			//	static object CoerceFoo(DependencyObject d, object baseValue) { ... }
 			//	static int CoerceFoo(Widget self, int baseValue) { ... }
-			bool _TryGetCoercionHandler(IMethodSymbol coercionHandlerSymbol, out string coercionHandler)
+			bool _TryGetCoercionHandler(IMethodSymbol methodSymbol, out string coercionHandler)
 			{
-				string methodName = coercionHandlerSymbol.Name;
-				if (methodName == coerceMethodName &&
-					!coercionHandlerSymbol.ReturnsVoid &&
-					coercionHandlerSymbol.IsStatic &&
-					coercionHandlerSymbol.Parameters.Length == 2)
+				string methodName = methodSymbol.Name;
+				if (methodSymbol.IsStatic &&
+					!methodSymbol.ReturnsVoid &&
+					methodSymbol.Parameters.Length == 2 &&
+					methodName == coerceMethodName)
 				{
 					bool requireLambda = false;
 
-					// Ensure return type is valid.
-					// Must be `object` or compatible with the property type.
-					ITypeSymbol retTypeSymbol = coercionHandlerSymbol.ReturnType;
+					// Ensure return type is valid. Must be `object` or the property type.
+					ITypeSymbol retTypeSymbol = methodSymbol.ReturnType;
 					if (retTypeSymbol.SpecialType != SpecialType.System_Object)
 					{
-						if (!CanCastTo(retTypeSymbol, generateThis.PropertyType!))
+						if (!retTypeSymbol.Equals(generateThis.PropertyType, SymbolEqualityComparer.Default))
 						{
 							coercionHandler = "null";
 							return false;
@@ -399,10 +453,9 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 						requireLambda = retTypeSymbol.IsValueType;
 					}
 
-					// Need to ensure type of p0 is valid.
-					// Must be `DependencyObject` or compatible with the owner type.
+					// Ensure type of p0 is valid. Must be `DependencyObject` or compatible with the owner type.
 					string? maybeCastArg0 = null;
-					ITypeSymbol p0TypeSymbol = coercionHandlerSymbol.Parameters[0].Type;
+					ITypeSymbol p0TypeSymbol = methodSymbol.Parameters[0].Type;
 					if (!p0TypeSymbol.Equals(doTypeSymbol, SymbolEqualityComparer.Default))
 					{
 						ITypeSymbol derivedTypeSymbol;
@@ -427,13 +480,12 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 						maybeCastArg0 = $"({p0TypeSymbol.ToDisplayString()})";
 					}
 
-					// Need to ensure type of p1 is valid.
-					// Must be `object` or compatible with the property type.
+					// Ensure type of p1 is valid. Must be `object` or the property type.
 					string? maybeCastArg1 = null;
-					ITypeSymbol p1TypeSymbol = coercionHandlerSymbol.Parameters[1].Type;
+					ITypeSymbol p1TypeSymbol = methodSymbol.Parameters[1].Type;
 					if (p1TypeSymbol.SpecialType != SpecialType.System_Object)
 					{
-						if (!CanCastTo(p1TypeSymbol, generateThis.PropertyType!))
+						if (!p1TypeSymbol.Equals(generateThis.PropertyType, SymbolEqualityComparer.Default))
 						{
 							coercionHandler = "null";
 							return false;

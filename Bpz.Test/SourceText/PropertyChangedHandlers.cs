@@ -26,14 +26,22 @@ namespace PropsChanged
 		public static readonly DependencyProperty FProperty = GenAttached<Butt>.Name("None");
 		private static void NamePropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) { }
 
+		public static readonly DependencyProperty GProperty = Gen.G<int?>();
+		protected virtual void GChanged(DependencyPropertyChangedEventArgs args) { }
+
+		public static readonly DependencyProperty HProperty = Gen.H<int>();
+		protected virtual void OnHChanged(int oldH, int newH) { }
+
+		public static readonly DependencyProperty IProperty = Gen.I<string?>();
+		protected virtual void OnIChanged(object newI, object oldI) { }
+
+		public static readonly DependencyProperty JProperty = Gen.J((string?)null);
+		protected virtual void OnJChanged(string? newJ, string? oldJ) { }
+
 		// void PropertyChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
-		// object CoerceValueCallback(DependencyObject d, object baseValue)
-		// private static object OnCoerceClip(DependencyObject d, object baseValue)
 
 		// OnNamePropertyChanged
 		//   NamePropertyChanged
 		// OnName        Changed
-
-		// DependencyObject, OwnerType
 	}
 }
