@@ -20,6 +20,7 @@ namespace Bpz.Test
 		[TestCase("AttachedDP1.cs")]
 		[TestCase("AttachedDP2.cs")]
 		[TestCase("PropertyChangedHandlers.cs")]
+		[TestCase("Coercion.cs")]
 		public void GenStuff(string resourceName)
 		{
 			using var source = Resources.GetEmbeddedResource(resourceName);
