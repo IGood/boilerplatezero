@@ -19,9 +19,10 @@ Additionally...
 - If an appropriate property-changed handler method is found, then it will be used during registration.
 - If an appropriate coercion method is found, then it will be used during registration.
 
-Jump to
+🔗 Jump to
 - [🤖 Generated Code Example](#dpgenerated)
 - [✨ Features List](#dpfeatures)
+- [🐛 Known Issues List](#-known-issues)
 
 ### 🛠 Example Dependency Property
 
