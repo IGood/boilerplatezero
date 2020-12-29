@@ -145,7 +145,6 @@ using System.Windows;
 			// As a safety precaution - ensure that the generated code is always valid by defaulting to use `object`.
 			// But really, if we were unable to get the type, that means the user's code doesn't compile anyhow.
 			generateThis.PropertyType = this.objTypeSymbol;
-			generateThis.PropertyTypeName = "object";
 			if (generateThis.MethodNameNode is GenericNameSyntax genMethodNameNode)
 			{
 				var typeArgNode = genMethodNameNode.TypeArgumentList.Arguments.FirstOrDefault();
@@ -154,13 +153,12 @@ using System.Windows;
 					var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
 					var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
 					generateThis.PropertyType = typeInfo.Type ?? this.objTypeSymbol;
-					generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
 
-					// A nullable ref type like `string?` loses its question mark here. Let's put it back.
+					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
 					// Note: Nullable value types like `int?` do not have this issue.
-					if (generateThis.PropertyTypeName.Last() != '?' && typeArgNode is NullableTypeSyntax)
+					if (generateThis.PropertyType.IsReferenceType && typeArgNode is NullableTypeSyntax)
 					{
-						generateThis.PropertyTypeName += '?';
+						generateThis.PropertyType = generateThis.PropertyType.WithNullableAnnotation(NullableAnnotation.Annotated);
 					}
 				}
 			}
@@ -171,9 +169,20 @@ using System.Windows;
 					var model = context.Compilation.GetSemanticModel(defaultValueArgNode.SyntaxTree);
 					var typeInfo = model.GetTypeInfo(defaultValueArgNode.Expression, context.CancellationToken);
 					generateThis.PropertyType = typeInfo.Type ?? this.objTypeSymbol;
-					generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
+
+					// Handle default value expressions like `(string?)null)`.
+					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
+					// Note: Nullable value types like `int?` do not have this issue.
+					if (generateThis.PropertyType.IsReferenceType &&
+						defaultValueArgNode.Expression is CastExpressionSyntax castNode &&
+						castNode.Type is NullableTypeSyntax)
+					{
+						generateThis.PropertyType = generateThis.PropertyType.WithNullableAnnotation(NullableAnnotation.Annotated);
+					}
 				}
 			}
+
+			generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
 
 			string genClassDecl;
 			string? moreDox = null;
@@ -385,9 +394,13 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 								p0.Name.StartsWith("old", StringComparison.OrdinalIgnoreCase) &&
 								p1.Name.StartsWith("new", StringComparison.OrdinalIgnoreCase))
 							{
+								string? maybeCastArgs = (generateThis.PropertyType.SpecialType != SpecialType.System_Object)
+									? $"({generateThis.PropertyTypeName})"
+									: null;
+
 								// Something like...
-								//	(d, e) => ((Goodies.Widget)d).OnFooChanged(e.OldValue, e.NewValue)
-								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}(e.OldValue, e.NewValue)";
+								//	(d, e) => ((Goodies.Widget)d).OnFooChanged((int)e.OldValue, (int)e.NewValue)
+								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue)";
 								return true;
 							}
 						}
