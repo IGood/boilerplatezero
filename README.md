@@ -115,21 +115,48 @@ namespace Goodies
 - generates static methods for attached properties
 - optional default values
 - <details><summary>detects suitable property-changed handlers</summary>
+  There are 3 options for property-changed handlers.
 
   ```csharp
   // 👩‍💻 user
   public static readonly DependencyProperty SeasonProperty = Gen.Season("autumn");
+
+  // Option 1 - static method, named "*Season*Changed"
   private static void SeasonPropertyChanged(Widget self, DependencyPropertyChangedEventArgs e)
   {
-      // This method will be used as the property-changed callback during registration!
-      // It was selected because...
+      // This method can be used as the property-changed callback during registration!
+      // It is a candidate because...
       // - its name contains the property name, "Season", & ends with "Changed"
-      // - it is `static` with return type `void`
-      // - the type of parameter 0 is compatible with the owner type
-      // - the type of parameter 1 is DependencyPropertyChangedEventArgs
+      // - it is `static`
+      // - return type is `void`
+      // - type of parameter 0 is compatible with the owner type
+      // - type of parameter 1 is `DependencyPropertyChangedEventArgs`
+  }
+
+  // Option 2 - instance method, named "[On]SeasonChanged", 2 parameters
+  protected virtual void OnSeasonChanged(string oldSeason, string newSeason)
+  {
+      // This method can be used as the property-changed callback during registration!
+      // It is a candidate because...
+      // - its name is "OnSeasonChanged" ("SeasonChanged" is also acceptable)
+      // - it is not `static`
+      // - return type is `void`
+      // - types of parameter 0 & 1 match the property type
+      // - names of parameter 0 & 1 start with "old" & "new" (respectively)
+  }
+
+  // Option 3 - instance method, named "[On]SeasonChanged", 1 parameter
+  protected virtual void OnSeasonChanged(DependencyPropertyChangedEventArgs e)
+  {
+      // This method can be used as the property-changed callback during registration!
+      // It is a candidate because...
+      // - its name is "OnSeasonChanged" ("SeasonChanged" is also acceptable)
+      // - it is not `static`
+      // - return type is `void`
+      // - type of parameter 0 is `DependencyPropertyChangedEventArgs`
   }
   ```
-  <details>
+  </details>
 - <details><summary>detects suitable value coercion handlers</summary>
 
   ```csharp
@@ -139,15 +166,15 @@ namespace Goodies
   {
       // This method will be used as the value coercion method during registration!
       // It was selected because...
-      // - its name is "Coerce" + the property name, "Age"
+      // - its name is "CoerceAge" (i.e. "Coerce" + the property name)
       // - it is `static`
-      // - the return type is compatible with the property type
-      // - the type of parameter 0 is compatible with the owner type
-      // - the type of parameter 1 is compatible with the property type
+      // - return type is `object` or matches the property type
+      // - type of parameter 0 is compatible with the owner type
+      // - type of parameter 1 is `object` or matches the property type
       return (baseValue >= 0) ? baseValue : 0;
   }
   ```
-  <details>
+  </details>
 - supports generic owner types
 - <details><summary>supports nullable types</summary>
 
