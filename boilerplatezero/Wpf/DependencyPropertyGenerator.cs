@@ -203,7 +203,7 @@ using System.Windows;
 						if (generateThis.AttachmentNarrowingType != null)
 						{
 							targetTypeName = generateThis.AttachmentNarrowingType.ToDisplayString();
-							moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{targetTypeName}""/>";
+							moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{ReplaceBrackets(targetTypeName)}""/>.";
 						}
 					}
 				}
@@ -269,7 +269,7 @@ $@"		{maybeDox}{propertyAccess} {generateThis.PropertyTypeName} {propertyName} {
 			sourceBuilder.AppendLine(
 $@"		private static partial class {genClassDecl} {{
 			/// <summary>
-			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{generateThis.PropertyTypeName}""/>.{moreDox}
+			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{ReplaceBrackets(generateThis.PropertyTypeName)}""/>.{moreDox}
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameter}) {{");
 
@@ -620,6 +620,29 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 		private static bool CanCastTo(ITypeSymbol checkThis, ITypeSymbol baseTypeSymbol)
 		{
 			return checkThis.Equals(baseTypeSymbol, SymbolEqualityComparer.Default) || (checkThis.BaseType != null && CanCastTo(checkThis.BaseType, baseTypeSymbol));
+		}
+
+		/// <summary>
+		/// Replaces angle brackets ("&lt;&gt;") with curly braces ("{}").
+		/// </summary>
+		private static string ReplaceBrackets(string typeName)
+		{
+			int indexOfBracket = typeName.IndexOf('<');
+			if (indexOfBracket < 0)
+			{
+				return typeName;
+			}
+
+			char[] chars = typeName.ToCharArray();
+
+			for (int i = indexOfBracket; i < chars.Length; ++i)
+			{
+				ref char c = ref chars[i];
+				if (c == '<') c = '{';
+				else if (c == '>') c = '}';
+			}
+
+			return new string(chars);
 		}
 
 		[Flags]
