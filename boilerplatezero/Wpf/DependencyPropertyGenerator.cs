@@ -19,7 +19,7 @@ namespace Bpz.Wpf
 	/// and generates the appropriate registration and getter/setter code.</para>
 	/// 
 	/// Property-changed handlers with appropriate names and compatible signatures like<br/>
-	/// <c>pivate static void FooPropertyChanged(MyClass self, DependencyPropertyChangedEventArgs e) { ... }</c><br/>
+	/// <c>private static void FooPropertyChanged(MyClass self, DependencyPropertyChangedEventArgs e) { ... }</c><br/>
 	/// will be included in the registration.
 	/// </summary>
 	[Generator]
@@ -170,7 +170,7 @@ using System.Windows;
 					var typeInfo = model.GetTypeInfo(defaultValueArgNode.Expression, context.CancellationToken);
 					generateThis.PropertyType = typeInfo.Type ?? this.objTypeSymbol;
 
-					// Handle default value expressions like `(string?)null)`.
+					// Handle default value expressions like `(string?)null`.
 					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
 					// Note: Nullable value types like `int?` do not have this issue.
 					if (generateThis.PropertyType.IsReferenceType &&
@@ -288,6 +288,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 		/// Appends source text that declares the property metadata variable named "metadata".
 		/// Accounts for whether a default value exists.
 		/// Accounts for whether a compatible property-changed handler exists.
+		/// Accounts for whether a compatible coercion handler exists.
 		/// </summary>
 		private void ApppendPropertyMetadata(StringBuilder sourceBuilder, GenerationDetails generateThis, bool hasDefaultValue)
 		{
@@ -327,7 +328,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 				}
 			}
 
-			// See if we have a property-changed handler like...
+			// See if we have any property-changed handlers like...
 			//	static void FooPropertyChanged(Widget self, DependencyPropertyChangedEventArgs e) { ... }
 			//	static void OnFooChanged(Widget self, DependencyPropertyChangedEventArgs e) { ... }
 			//	void FooChanged(DependencyPropertyChangedEventArgs e) { ... }
@@ -425,7 +426,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 				return false;
 			}
 
-			// See if we have a coercion handler like...
+			// See if we have any coercion handlers like...
 			//	static object CoerceFoo(DependencyObject d, object baseValue) { ... }
 			//	static int CoerceFoo(Widget self, int baseValue) { ... }
 			bool _TryGetCoercionHandler(IMethodSymbol methodSymbol, out string coercionHandler)
@@ -671,8 +672,8 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 					{
 						// Looking for field initialization like "= Gen.Foo"...
 						var varDecl = fieldDecl.Declaration.Variables.FirstOrDefault();
-						if (varDecl?.Initializer?.Value is InvocationExpressionSyntax invokationExpr &&
-							invokationExpr.Expression is MemberAccessExpressionSyntax memberAccessExpr &&
+						if (varDecl?.Initializer?.Value is InvocationExpressionSyntax invocationExpr &&
+							invocationExpr.Expression is MemberAccessExpressionSyntax memberAccessExpr &&
 							memberAccessExpr.Expression is SimpleNameSyntax idName)
 						{
 							if (idName.Identifier.ValueText == "Gen")
@@ -690,7 +691,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 		}
 
 		/// <summary>
-		/// Reprsents a candidate dependency property for which source may be generated.
+		/// Represents a candidate dependency property for which source may be generated.
 		/// </summary>
 		private class GenerationDetails
 		{
