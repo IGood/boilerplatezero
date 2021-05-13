@@ -51,11 +51,12 @@ namespace Bpz.Wpf
 
 			var syntaxReceiver = (SyntaxReceiver)context.SyntaxReceiver!;
 
+			// Cast keys to `ISymbol` in the key selector to make the analyzer shutup about CS8602 ("Dereference of a possibly null reference.").
 			var namespaces = UpdateAndFilterGenerationRequests(context, syntaxReceiver.GenerationRequests)
-				.GroupBy(g => g.FieldSymbol.ContainingType, SymbolEqualityComparer.Default)
-				.GroupBy(g => g.Key.ContainingNamespace, SymbolEqualityComparer.Default);
+			   .GroupBy(g => (ISymbol)g.FieldSymbol.ContainingType, SymbolEqualityComparer.Default)
+			   .GroupBy(g => (ISymbol)g.Key.ContainingNamespace, SymbolEqualityComparer.Default);
 
-			StringBuilder sourceBuilder = new StringBuilder();
+			StringBuilder sourceBuilder = new();
 
 			foreach (var namespaceGroup in namespaces)
 			{
@@ -64,12 +65,12 @@ namespace Bpz.Wpf
 				this.doTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.DependencyObject")!;
 				this.argsTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyChangedEventArgs")!;
 
-				string namespaceName = namespaceGroup.Key!.ToString();
+				string namespaceName = namespaceGroup.Key.ToString();
 				sourceBuilder.AppendLine($"namespace {namespaceName} {{");
 
 				foreach (var classGroup in namespaceGroup)
 				{
-					string? maybeStatic = classGroup.Key!.IsStatic ? "static" : null;
+					string? maybeStatic = classGroup.Key.IsStatic ? "static" : null;
 					string className = GetTypeName((INamedTypeSymbol)classGroup.Key);
 					sourceBuilder.AppendLine($"\t{maybeStatic} partial class {className} {{");
 
@@ -115,7 +116,8 @@ using System.Windows;
 			Accessibility dpkAccess = generateThis.FieldSymbol.DeclaredAccessibility;
 
 			// If this is a DependencyPropertyKey, then we may need to create the corresponding DependencyProperty field.
-			// The DependencyProperty field is required for use with TemplateBindings in XAML.
+			// We do this because it's proper to always have a DependencyProperty field & because the DependencyProperty
+			// field is required when using TemplateBindings in XAML.
 			if (generateThis.IsDpk)
 			{
 				ISymbol? dpMemberSymbol = generateThis.FieldSymbol.ContainingType.GetMembers(dpMemberName).FirstOrDefault();
@@ -132,6 +134,8 @@ using System.Windows;
 					sourceBuilder.AppendLine($"\t\tpublic static readonly DependencyProperty {dpMemberName} = {dpkMemberName}.DependencyProperty;");
 				}
 			}
+
+			// TODO: Check for a FrameworkPropertyMetadataOptions argument.
 
 			// Get the default value argument if it exists.
 			ArgumentSyntax? defaultValueArgNode = null;
@@ -741,7 +745,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 
 		private static class Diagnostics
 		{
-			private static readonly DiagnosticDescriptor MismatchedIdentifiersError = new DiagnosticDescriptor(
+			private static readonly DiagnosticDescriptor MismatchedIdentifiersError = new(
 				"BPZ0001",
 				"Mismatched identifiers",
 				"Field name '{0}' and method name '{1}' do not match. Expected '{2} = {3}'.",
@@ -763,7 +767,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 					initializer);
 			}
 
-			private static readonly DiagnosticDescriptor UnexpectedFieldTypeError = new DiagnosticDescriptor(
+			private static readonly DiagnosticDescriptor UnexpectedFieldTypeError = new(
 				"BPZ1001",
 				"Unexpected field type",
 				"'{0}.{1}' has unexpected type '{2}'. Expected 'System.Windows.DependencyProperty' or 'System.Windows.DependencyPropertyKey'.",
