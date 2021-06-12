@@ -1,3 +1,5 @@
+// Copyright © Ian Good
+
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
