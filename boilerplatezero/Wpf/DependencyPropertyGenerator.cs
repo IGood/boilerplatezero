@@ -164,8 +164,9 @@ using System.Windows;
 			//	(B) Gen.Foo(defaultValue)
 			//	(C) Gen.Foo<T>(flags)
 			//	(D) Gen.Foo(defaultValue, flags)
-			// The first argument is either the default value or the flags (`FrameworkPropertyMetadataOptions`).
-			// Note: We do not support T = FrameworkPropertyMetadataOptions.
+			// The first argument is either the default value or the flags.
+			// Note: We do not support properties whose default value is `FrameworkPropertyMetadataOptions` because
+			// it's a niche case that would add code complexity.
 			ArgumentSyntax? defaultValueArgNode = null;
 			ITypeSymbol? typeOfFirstArg = null;
 			bool hasFlags = false;
