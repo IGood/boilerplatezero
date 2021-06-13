@@ -33,9 +33,10 @@ namespace Bpz.Wpf
 		private bool useNullableContext;
 
 		// These will be initialized before first.
-		private INamedTypeSymbol objTypeSymbol = null!; // System.Object
-		private INamedTypeSymbol doTypeSymbol = null!;  // System.Windows.DependencyObject
-		private INamedTypeSymbol argsTypeSymbol = null!;// System.Windows.DependencyPropertyChangedEventArgs
+		private INamedTypeSymbol objTypeSymbol = null!;  // System.Object
+		private INamedTypeSymbol doTypeSymbol = null!;   // System.Windows.DependencyObject
+		private INamedTypeSymbol argsTypeSymbol = null!; // System.Windows.DependencyPropertyChangedEventArgs
+		private INamedTypeSymbol flagsTypeSymbol = null!;// System.Windows.FrameworkPropertyMetadataOptions
 
 		public void Initialize(GeneratorInitializationContext context)
 		{
@@ -64,6 +65,7 @@ namespace Bpz.Wpf
 				this.objTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Object")!;
 				this.doTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.DependencyObject")!;
 				this.argsTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyChangedEventArgs")!;
+				this.flagsTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.FrameworkPropertyMetadataOptions")!;
 
 				string namespaceName = namespaceGroup.Key.ToString();
 				sourceBuilder.AppendLine($"namespace {namespaceName} {{");
@@ -135,20 +137,8 @@ using System.Windows;
 				}
 			}
 
-			// TODO: Check for a FrameworkPropertyMetadataOptions argument.
-
-			// Get the default value argument if it exists.
-			ArgumentSyntax? defaultValueArgNode = null;
-			if (TryGetAncestor(generateThis.MethodNameNode, out InvocationExpressionSyntax? invocationExpressionNode))
-			{
-				defaultValueArgNode = invocationExpressionNode!.ArgumentList.Arguments.FirstOrDefault();
-			}
-
-			// Determine the type of the property.
-			// If there are generic type arguments, then use that; otherwise, use the type of the default value argument.
-			// As a safety precaution - ensure that the generated code is always valid by defaulting to use `object`.
-			// But really, if we were unable to get the type, that means the user's code doesn't compile anyhow.
-			generateThis.PropertyType = this.objTypeSymbol;
+			// Try to get the generic type argument (if it exists, this will be the type of the property).
+			ITypeSymbol? genTypeArg = null;
 			if (generateThis.MethodNameNode is GenericNameSyntax genMethodNameNode)
 			{
 				var typeArgNode = genMethodNameNode.TypeArgumentList.Arguments.FirstOrDefault();
@@ -156,35 +146,56 @@ using System.Windows;
 				{
 					var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
 					var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
-					generateThis.PropertyType = typeInfo.Type ?? this.objTypeSymbol;
+					genTypeArg = typeInfo.Type;
 
 					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
 					// Note: Nullable value types like `int?` do not have this issue.
-					if (generateThis.PropertyType.IsReferenceType && typeArgNode is NullableTypeSyntax)
+					if (genTypeArg != null &&
+						genTypeArg.IsReferenceType &&
+						typeArgNode is NullableTypeSyntax)
 					{
-						generateThis.PropertyType = generateThis.PropertyType.WithNullableAnnotation(NullableAnnotation.Annotated);
+						genTypeArg = genTypeArg.WithNullableAnnotation(NullableAnnotation.Annotated);
 					}
 				}
 			}
-			else
+
+			// We support 0, 1, or 2 arguments. Check for default value and/or flags arguments.
+			//	(A) Gen.Foo<T>()
+			//	(B) Gen.Foo(defaultValue)
+			//	(C) Gen.Foo<T>(flags)
+			//	(D) Gen.Foo(defaultValue, flags)
+			// The first argument is either the default value or the flags (`FrameworkPropertyMetadataOptions`).
+			// Note: We do not support T = FrameworkPropertyMetadataOptions.
+			ArgumentSyntax? defaultValueArgNode = null;
+			ITypeSymbol? typeOfFirstArg = null;
+			bool hasFlags = false;
+			if (TryGetAncestor(generateThis.MethodNameNode, out InvocationExpressionSyntax? invocationExpressionNode))
 			{
-				if (defaultValueArgNode != null)
+				var args = invocationExpressionNode.ArgumentList.Arguments;
+				if (args.Count > 0)
 				{
-					var model = context.Compilation.GetSemanticModel(defaultValueArgNode.SyntaxTree);
-					var typeInfo = model.GetTypeInfo(defaultValueArgNode.Expression, context.CancellationToken);
-					generateThis.PropertyType = typeInfo.Type ?? this.objTypeSymbol;
-
-					// Handle default value expressions like `(string?)null`.
-					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
-					// Note: Nullable value types like `int?` do not have this issue.
-					if (generateThis.PropertyType.IsReferenceType &&
-						defaultValueArgNode.Expression is CastExpressionSyntax castNode &&
-						castNode.Type is NullableTypeSyntax)
+					// If the first argument is the flags, then we generate (C); otherwise, we generate (B) or (D).
+					typeOfFirstArg = GetArgumentType(context, args[0]) ?? this.objTypeSymbol;
+					if (typeOfFirstArg.Equals(this.flagsTypeSymbol, SymbolEqualityComparer.Default))
 					{
-						generateThis.PropertyType = generateThis.PropertyType.WithNullableAnnotation(NullableAnnotation.Annotated);
+						hasFlags = true;
+					}
+					else
+					{
+						defaultValueArgNode = args[0];
+						hasFlags = args.Count > 1;
 					}
 				}
 			}
+
+			// Determine the type of the property.
+			// If there are generic type arguments, then use that; otherwise, use the type of the default value argument.
+			// As a safety precaution - ensure that the generated code is always valid by defaulting to use `object`.
+			// But really, if we were unable to get the type, that means the user's code doesn't compile anyhow.
+			generateThis.PropertyType =
+				genTypeArg
+				?? (defaultValueArgNode != null ? typeOfFirstArg : null)
+				?? this.objTypeSymbol;
 
 			generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
 
@@ -267,17 +278,37 @@ $@"		{maybeDox}{propertyAccess} {generateThis.PropertyTypeName} {propertyName} {
 			string what = generateThis.IsDpk
 				? (generateThis.IsAttached ? "a read-only attached property" : "a read-only dependency property")
 				: (generateThis.IsAttached ? "an attached property" : "a dependency property");
+
 			string returnType = generateThis.FieldSymbol.Type.Name;
+
 			bool hasDefaultValue = defaultValueArgNode != null;
-			string parameter = hasDefaultValue ? "__T defaultValue" : "";
+
+			string parameters;
+			{
+				int numParams = 0;
+				string[] @params = new string[2];
+
+				if (hasDefaultValue)
+				{
+					@params[numParams++] = "__T defaultValue";
+				}
+
+				if (hasFlags)
+				{
+					@params[numParams++] = "FrameworkPropertyMetadataOptions flags";
+				}
+
+				parameters = string.Join(", ", @params, 0, numParams);
+			}
+
 			sourceBuilder.AppendLine(
 $@"		private static partial class {genClassDecl} {{
 			/// <summary>
 			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{ReplaceBrackets(generateThis.PropertyTypeName)}""/>.{moreDox}
 			/// </summary>
-			public static {returnType} {propertyName}<__T>({parameter}) {{");
+			public static {returnType} {propertyName}<__T>({parameters}) {{");
 
-			this.ApppendPropertyMetadata(sourceBuilder, generateThis, hasDefaultValue);
+			this.ApppendPropertyMetadata(sourceBuilder, generateThis, hasDefaultValue, hasFlags);
 
 			string a = generateThis.IsAttached ? "Attached" : "";
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
@@ -294,7 +325,7 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 		/// Accounts for whether a compatible property-changed handler exists.
 		/// Accounts for whether a compatible coercion handler exists.
 		/// </summary>
-		private void ApppendPropertyMetadata(StringBuilder sourceBuilder, GenerationDetails generateThis, bool hasDefaultValue)
+		private void ApppendPropertyMetadata(StringBuilder sourceBuilder, GenerationDetails generateThis, bool hasDefaultValue, bool hasFlags)
 		{
 			INamedTypeSymbol ownerType = generateThis.FieldSymbol.ContainingType;
 			string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
@@ -519,6 +550,13 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 				return false;
 			}
 
+			if (hasFlags)
+			{
+				string defaultValue = hasDefaultValue ? "defaultValue" : "default(__T)";
+				sourceBuilder.AppendLine($"FrameworkPropertyMetadata metadata = new FrameworkPropertyMetadata({defaultValue}, flags, {changeHandler}, {coercionHandler});");
+				return;
+			}
+
 			if (hasDefaultValue)
 			{
 				sourceBuilder.AppendLine($"PropertyMetadata metadata = new PropertyMetadata(defaultValue, {changeHandler}, {coercionHandler});");
@@ -603,6 +641,29 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 		}
 
 		/// <summary>
+		/// Attempts to gets the type of an argument node.
+		/// </summary>
+		private static ITypeSymbol? GetArgumentType(GeneratorExecutionContext context, ArgumentSyntax argumentNode)
+		{
+			var model = context.Compilation.GetSemanticModel(argumentNode.SyntaxTree);
+			var typeInfo = model.GetTypeInfo(argumentNode.Expression, context.CancellationToken);
+			ITypeSymbol? argType = typeInfo.Type;
+
+			// Handle expressions like `(string?)null`.
+			// A nullable ref type like `string?` loses its annotation here. Let's put it back.
+			// Note: Nullable value types like `int?` do not have this issue.
+			if (argType != null &&
+				argType.IsReferenceType &&
+				argumentNode.Expression is CastExpressionSyntax castNode &&
+				castNode.Type is NullableTypeSyntax)
+			{
+				argType = argType.WithNullableAnnotation(NullableAnnotation.Annotated);
+			}
+
+			return argType;
+		}
+
+		/// <summary>
 		/// Gets the name of the type including generic type parameters (ex: "Widget&lt;TSomething&gt;").
 		/// </summary>
 		private static string GetTypeName(INamedTypeSymbol typeSymbol)
@@ -682,11 +743,11 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 						{
 							if (idName.Identifier.ValueText == "Gen")
 							{
-								this.GenerationRequests.Add(new GenerationDetails(memberAccessExpr.Name, false));
+								this.GenerationRequests.Add(new(memberAccessExpr.Name, false));
 							}
 							else if (idName.Identifier.ValueText == "GenAttached")
 							{
-								this.GenerationRequests.Add(new GenerationDetails(memberAccessExpr.Name, true));
+								this.GenerationRequests.Add(new(memberAccessExpr.Name, true));
 							}
 						}
 					}

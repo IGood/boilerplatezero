@@ -17,7 +17,8 @@ namespace Bpz.Test
 				.WithOptions(new(OutputKind.DynamicallyLinkedLibrary))
 				.WithReferences(
 					MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-					MetadataReference.CreateFromFile(typeof(DependencyObject).Assembly.Location))
+					MetadataReference.CreateFromFile(typeof(DependencyObject).Assembly.Location),
+					MetadataReference.CreateFromFile(typeof(FrameworkPropertyMetadataOptions).Assembly.Location))
 				.AddSyntaxTrees(CSharpSyntaxTree.ParseText(sourceText));
 
 			var rr = CSharpGeneratorDriver
