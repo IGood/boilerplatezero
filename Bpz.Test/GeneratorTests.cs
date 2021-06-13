@@ -1,3 +1,5 @@
+// Copyright © Ian Good
+
 using Bpz.Wpf;
 using Microsoft.CodeAnalysis.Text;
 using NUnit.Framework;
@@ -10,6 +12,7 @@ namespace Bpz.Test
 {
 	public class GeneratorTests
 	{
+		// These aren't really tests, but we do get to set breakpoints & step through our source generator with these.
 		[TestCase("MinimalDP1.cs")]
 		[TestCase("MinimalDP2.cs")]
 		[TestCase("MinimalDP3.cs")]
@@ -21,6 +24,7 @@ namespace Bpz.Test
 		[TestCase("AttachedDP2.cs")]
 		[TestCase("PropertyChangedHandlers.cs")]
 		[TestCase("Coercion.cs")]
+		[TestCase("FxPropMetadata.cs")]
 		public void GenStuff(string resourceName)
 		{
 			using var source = Resources.GetEmbeddedResource(resourceName);

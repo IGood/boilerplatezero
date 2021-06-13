@@ -114,6 +114,15 @@ namespace Goodies
 - generates instance properties for dependency properties
 - generates static methods for attached properties
 - optional default values
+- <details><summary>optional <code>FrameworkPropertyMetadataOptions</code> flags</summary>
+  A <code>flags</code> argument may be specified for the property's <code>FrameworkPropertyMetadata</code>.
+
+  ```csharp
+  // 👩‍💻 user
+  public static readonly DependencyProperty TextProperty = Gen.Text<string?>(FrameworkPropertyMetadataOptions.BindsTwoWayByDefault);
+  public static readonly DependencyProperty ErrorBrushProperty = GenAttached.ErrorBrush(Brushes.Red, FrameworkPropertyMetadataOptions.Inherits);
+  ```
+  </details>
 - <details><summary>detects suitable property-changed handlers</summary>
   There are 3 options for property-changed handlers.
 
@@ -236,3 +245,7 @@ namespace Goodies
 ### 🐛 Known Issues
 
 related: Source Generator support for WPF project blocked? [#3404](https://github.com/dotnet/wpf/issues/3404)
+- fix / workaround: use this in project file
+  ```xml
+  <IncludePackageReferencesDuringMarkupCompilation>true</IncludePackageReferencesDuringMarkupCompilation>
+  ```

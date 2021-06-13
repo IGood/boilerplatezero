@@ -2,7 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 
-namespace PropsChanged
+namespace Coercing
 {
 	public partial class TestMe : Button
 	{
@@ -16,7 +16,7 @@ namespace PropsChanged
 		private static object CoerceC(object d, object baseValue) { return baseValue; }
 
 		public static readonly DependencyProperty DProperty = Gen.D<int>();
-		
+
 		public static readonly DependencyProperty EProperty = Gen.E<int>(123);
 
 		public static readonly DependencyProperty FProperty = Gen.F<int>(456);
