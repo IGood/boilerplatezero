@@ -189,13 +189,15 @@ using System.Windows;
 				}
 			}
 
+			bool hasDefaultValue = defaultValueArgNode != null;
+
 			// Determine the type of the property.
-			// If there are generic type arguments, then use that; otherwise, use the type of the default value argument.
+			// If there is a generic type argument, then use that; otherwise, use the type of the default value argument.
 			// As a safety precaution - ensure that the generated code is always valid by defaulting to use `object`.
 			// But really, if we were unable to get the type, that means the user's code doesn't compile anyhow.
 			generateThis.PropertyType =
 				genTypeArg
-				?? (defaultValueArgNode != null ? typeOfFirstArg : null)
+				?? (hasDefaultValue ? typeOfFirstArg : null)
 				?? this.objTypeSymbol;
 
 			generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
@@ -281,8 +283,6 @@ $@"		{maybeDox}{propertyAccess} {generateThis.PropertyTypeName} {propertyName} {
 				: (generateThis.IsAttached ? "an attached property" : "a dependency property");
 
 			string returnType = generateThis.FieldSymbol.Type.Name;
-
-			bool hasDefaultValue = defaultValueArgNode != null;
 
 			string parameters;
 			{
