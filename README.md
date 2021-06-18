@@ -20,11 +20,14 @@ Additionally...
 - If an appropriate coercion method is found, then it will be used during registration.
 
 🔗 Jump to...
+- [👩‍💻 Write This, Not That](#-write-this-not-that-examples)
 - [🤖 Generated Code Example](#-generated-code)
 - [✨ Features List](#-features)
 - [🐛 Known Issues List](#-known-issues)
 
-### 🛠 Write This, Not That: Examples
+----
+
+### 👩‍💻 Write This, Not That: Examples
 
 #### 🛠 Dependency Property
 
@@ -64,7 +67,7 @@ private static void TextPropertyChanged(DependencyObject d, DependencyPropertyCh
 }
 protected virtual void OnTextChanged(string oldText, string newText) { ... }
 ```
-</details><br>
+</details>
 
 #### 🛠 Attached Property
 
@@ -78,6 +81,8 @@ public static readonly DependencyProperty BarProperty = BarPropertyKey.Dependenc
 public static string GetBar(DependencyObject d) => (string)d.GetValue(BarProperty);
 private static void SetBar(DependencyObject d, string value) => d.SetValue(BarPropertyKey, value);
 ```
+
+----
 
 ### 🤖 Generated Code
 
@@ -134,6 +139,8 @@ namespace Goodies
     }
 }
 ```
+
+----
 
 ### ✨ Features 
 
