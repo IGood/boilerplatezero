@@ -20,14 +20,22 @@ Additionally...
 - If an appropriate coercion method is found, then it will be used during registration.
 
 🔗 Jump to...
+- [👩‍💻 Write This, Not That](#-write-this-not-that-examples)
 - [🤖 Generated Code Example](#-generated-code)
 - [✨ Features List](#-features)
 - [🐛 Known Issues List](#-known-issues)
 
-### 🛠 Example Dependency Property
+----
+
+### 👩‍💻 Write This, Not That: Examples
+
+#### 🛠 Dependency Property
 
 ```csharp
-// Dependency property written idiomatically:
+// Write this (using BPZ):
+private static readonly DependencyPropertyKey FooPropertyKey = Gen.Foo<string>();
+
+// Not that (idiomatic implementation):
 private static readonly DependencyPropertyKey FooPropertyKey = DependencyProperty.RegisterReadOnly(nameof(Foo), typeof(string), typeof(MyClass), null);
 public static readonly DependencyProperty FooProperty = FooPropertyKey.DependencyProperty;
 public string Foo
@@ -35,23 +43,46 @@ public string Foo
     get => (string)this.GetValue(FooProperty);
     private set => this.SetValue(FooPropertyKey, value);
 }
-
-// Dependency property written with BPZ (new hotness):
-private static readonly DependencyPropertyKey FooPropertyKey = Gen.Foo<string>();
 ```
 
-### 🛠 Example Attached Property
+<details><summary>A more complex example...</summary>
 
 ```csharp
-// Attached property written idiomatically:
-private static readonly DependencyPropertyKey BarPropertyKey = DependencyProperty.RegisterAttachedReadOnly("Bar"), typeof(string), typeof(MyClass), null);
+// Write this (using BPZ):
+public static readonly DependencyProperty TextProperty = Gen.Text("", FrameworkPropertyMetadataOptions.BindsTwoWayByDefault);
+protected virtual void OnTextChanged(string oldText, string newText) { ... }
+
+// Not that (idiomatic implementation):
+public static readonly DependencyProperty TextProperty = DependencyProperty.Register(
+    nameof(Text), typeof(string), typeof(MyClass),
+    new FrameworkPropertyMetadata("", FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, TextPropertyChanged));
+public string Text
+{
+    get => (string)this.GetValue(TextProperty);
+    set => this.SetValue(TextProperty, value);
+}
+private static void TextPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+{
+    ((MyClass)d).OnTextChanged((string)e.OldValue, (string)e.NewValue);
+}
+protected virtual void OnTextChanged(string oldText, string newText) { ... }
+```
+</details>
+
+#### 🛠 Attached Property
+
+```csharp
+// Write this (using BPZ):
+private static readonly DependencyPropertyKey BarPropertyKey = GenAttached.Bar<string>();
+
+// Not that (idiomatic implementation):
+private static readonly DependencyPropertyKey BarPropertyKey = DependencyProperty.RegisterAttachedReadOnly("Bar", typeof(string), typeof(MyClass), null);
 public static readonly DependencyProperty BarProperty = BarPropertyKey.DependencyProperty;
 public static string GetBar(DependencyObject d) => (string)d.GetValue(BarProperty);
 private static void SetBar(DependencyObject d, string value) => d.SetValue(BarPropertyKey, value);
-
-// Attached property written with BPZ (new hotness):
-private static readonly DependencyPropertyKey BarPropertyKey = GenAttached.Bar<string>();
 ```
+
+----
 
 ### 🤖 Generated Code
 
@@ -108,6 +139,8 @@ namespace Goodies
     }
 }
 ```
+
+----
 
 ### ✨ Features 
 
