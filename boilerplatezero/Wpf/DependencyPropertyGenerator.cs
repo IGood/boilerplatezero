@@ -32,7 +32,7 @@ namespace Bpz.Wpf
 		/// </summary>
 		private bool useNullableContext;
 
-		// These will be initialized before first.
+		// These will be initialized before first use.
 		private INamedTypeSymbol objTypeSymbol = null!;  // System.Object
 		private INamedTypeSymbol doTypeSymbol = null!;   // System.Windows.DependencyObject
 		private INamedTypeSymbol argsTypeSymbol = null!; // System.Windows.DependencyPropertyChangedEventArgs
@@ -78,6 +78,8 @@ namespace Bpz.Wpf
 
 					foreach (var generateThis in classGroup)
 					{
+						context.CancellationToken.ThrowIfCancellationRequested();
+
 						this.ApppendSource(context, sourceBuilder, generateThis);
 					}
 
@@ -309,24 +311,25 @@ $@"		private static partial class {genClassDecl} {{
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameters}) {{");
 
-			this.ApppendPropertyMetadata(sourceBuilder, generateThis, hasDefaultValue, hasFlags);
+			sourceBuilder.Append("\t\t\t\t");
+			sourceBuilder.AppendLine(this.GetPropertyMetadataDeclaration(generateThis, hasDefaultValue, hasFlags));
 
 			string a = generateThis.IsAttached ? "Attached" : "";
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
 			string ownerTypeName = GetTypeName(generateThis.FieldSymbol.ContainingType);
 			sourceBuilder.AppendLine(
-$@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata);
+$@"				return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata);
 			}}
 		}}");
 		}
 
 		/// <summary>
-		/// Appends source text that declares the property metadata variable named "metadata".
+		/// Gets source text that declares the property metadata variable named "metadata".
 		/// Accounts for whether a default value exists.
 		/// Accounts for whether a compatible property-changed handler exists.
 		/// Accounts for whether a compatible coercion handler exists.
 		/// </summary>
-		private void ApppendPropertyMetadata(StringBuilder sourceBuilder, GenerationDetails generateThis, bool hasDefaultValue, bool hasFlags)
+		private string GetPropertyMetadataDeclaration(GenerationDetails generateThis, bool hasDefaultValue, bool hasFlags)
 		{
 			INamedTypeSymbol ownerType = generateThis.FieldSymbol.ContainingType;
 			string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
@@ -554,30 +557,26 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 			if (hasFlags)
 			{
 				string defaultValue = hasDefaultValue ? "defaultValue" : "default(__T)";
-				sourceBuilder.AppendLine($"FrameworkPropertyMetadata metadata = new FrameworkPropertyMetadata({defaultValue}, flags, {changeHandler}, {coercionHandler});");
-				return;
+				return $"FrameworkPropertyMetadata metadata = new FrameworkPropertyMetadata({defaultValue}, flags, {changeHandler}, {coercionHandler});";
 			}
 
 			if (hasDefaultValue)
 			{
-				sourceBuilder.AppendLine($"PropertyMetadata metadata = new PropertyMetadata(defaultValue, {changeHandler}, {coercionHandler});");
-				return;
+				return $"PropertyMetadata metadata = new PropertyMetadata(defaultValue, {changeHandler}, {coercionHandler});";
 			}
 
 			if (changeHandler != "null")
 			{
-				sourceBuilder.AppendLine($"PropertyMetadata metadata = new PropertyMetadata({changeHandler}) {{ CoerceValueCallback = {coercionHandler} }};");
-				return;
+				return $"PropertyMetadata metadata = new PropertyMetadata({changeHandler}) {{ CoerceValueCallback = {coercionHandler} }};";
 			}
 
 			if (coercionHandler != "null")
 			{
-				sourceBuilder.AppendLine($"PropertyMetadata metadata = new PropertyMetadata() {{ CoerceValueCallback = {coercionHandler} }};");
-				return;
+				return $"PropertyMetadata metadata = new PropertyMetadata() {{ CoerceValueCallback = {coercionHandler} }};";
 			}
 
 			string nullLiteral = this.useNullableContext ? "null!" : "null";
-			sourceBuilder.AppendLine($"PropertyMetadata metadata = {nullLiteral};");
+			return $"PropertyMetadata metadata = {nullLiteral};";
 		}
 
 		/// <summary>
@@ -808,21 +807,21 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 		private static class Diagnostics
 		{
 			private static readonly DiagnosticDescriptor MismatchedIdentifiersError = new(
-				"BPZ0001",
-				"Mismatched identifiers",
-				"Field name '{0}' and method name '{1}' do not match. Expected '{2} = {3}'.",
-				"Naming",
-				DiagnosticSeverity.Error,
-				true,
-				null,
-				HelpLinkUri,
-				WellKnownDiagnosticTags.Compiler);
+				id: "BPZ0001",
+				title: "Mismatched identifiers",
+				messageFormat: "Field name '{0}' and method name '{1}' do not match. Expected '{2} = {3}'.",
+				category: "Naming",
+				defaultSeverity: DiagnosticSeverity.Error,
+				isEnabledByDefault: true,
+				description: null,
+				helpLinkUri: HelpLinkUri,
+				customTags: WellKnownDiagnosticTags.Compiler);
 
 			public static Diagnostic MismatchedIdentifiers(IFieldSymbol fieldSymbol, string methodName, string expectedFieldName, string initializer)
 			{
 				return Diagnostic.Create(
-					MismatchedIdentifiersError,
-					fieldSymbol.Locations[0],
+					descriptor: MismatchedIdentifiersError,
+					location: fieldSymbol.Locations[0],
 					fieldSymbol.Name,
 					methodName,
 					expectedFieldName,
@@ -830,21 +829,21 @@ $@"return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), ty
 			}
 
 			private static readonly DiagnosticDescriptor UnexpectedFieldTypeError = new(
-				"BPZ1001",
-				"Unexpected field type",
-				"'{0}.{1}' has unexpected type '{2}'. Expected 'System.Windows.DependencyProperty' or 'System.Windows.DependencyPropertyKey'.",
-				"Types",
-				DiagnosticSeverity.Error,
-				true,
-				null,
-				HelpLinkUri,
-				WellKnownDiagnosticTags.Compiler);
+				id: "BPZ1001",
+				title: "Unexpected field type",
+				messageFormat: "'{0}.{1}' has unexpected type '{2}'. Expected 'System.Windows.DependencyProperty' or 'System.Windows.DependencyPropertyKey'.",
+				category: "Types",
+				defaultSeverity: DiagnosticSeverity.Error,
+				isEnabledByDefault: true,
+				description: null,
+				helpLinkUri: HelpLinkUri,
+				customTags: WellKnownDiagnosticTags.Compiler);
 
 			public static Diagnostic UnexpectedFieldType(IFieldSymbol fieldSymbol)
 			{
 				return Diagnostic.Create(
-					UnexpectedFieldTypeError,
-					fieldSymbol.Locations[0],
+					descriptor: UnexpectedFieldTypeError,
+					location: fieldSymbol.Locations[0],
 					fieldSymbol.ContainingType.Name,
 					fieldSymbol.Name,
 					fieldSymbol.Type.ToDisplayString());
