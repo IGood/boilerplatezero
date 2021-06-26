@@ -26,7 +26,7 @@ namespace Bpz.Test
 			self.MyString1Changed?.Invoke(self, EventArgs.Empty);
 		}
 
-		private void OnMyString2Changed(string oldValue, string newValue)
+		private void OnMyString2Changed(string? oldValue, string? newValue)
 		{
 			this.MyString2Changed?.Invoke(this, EventArgs.Empty);
 		}

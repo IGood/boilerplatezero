@@ -2,13 +2,16 @@
 
 using NUnit.Framework;
 using System;
-using System.Windows;
 
 namespace Bpz.Test
 {
+	/// <summary>
+	/// Exercises basic dependency property behavior.
+	/// This won't compile if the properties we expect weren't generated.
+	/// </summary>
 	public class WidgetTests
 	{
-		[Test(Description = "This won't compile if the properties we expect weren't generated.")]
+		[Test(Description = "Checks default values.")]
 		public void ExpectDefaults()
 		{
 			var w = new Widget();
