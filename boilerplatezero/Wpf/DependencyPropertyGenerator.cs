@@ -68,13 +68,17 @@ namespace Bpz.Wpf
 				this.flagsTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.FrameworkPropertyMetadataOptions")!;
 
 				string namespaceName = namespaceGroup.Key.ToString();
-				sourceBuilder.AppendLine($"namespace {namespaceName} {{");
+				sourceBuilder.Append($@"
+namespace {namespaceName}
+{{");
 
 				foreach (var classGroup in namespaceGroup)
 				{
-					string? maybeStatic = classGroup.Key.IsStatic ? "static" : null;
+					string? maybeStatic = classGroup.Key.IsStatic ? "static " : null;
 					string className = GetTypeName((INamedTypeSymbol)classGroup.Key);
-					sourceBuilder.AppendLine($"\t{maybeStatic} partial class {className} {{");
+					sourceBuilder.Append($@"
+	{maybeStatic}partial class {className}
+	{{");
 
 					foreach (var generateThis in classGroup)
 					{
@@ -83,10 +87,14 @@ namespace Bpz.Wpf
 						this.ApppendSource(context, sourceBuilder, generateThis);
 					}
 
-					sourceBuilder.AppendLine("\t}");
+					sourceBuilder.Append(@"
+	}
+");
 				}
 
-				sourceBuilder.AppendLine("}");
+				sourceBuilder.Append(@"
+}
+");
 			}
 
 			if (sourceBuilder.Length != 0)
@@ -103,7 +111,6 @@ $@"//---------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 {maybeNullableContext}
 using System.Windows;
-
 ");
 
 				context.AddSource($"bpz.DependencyProperties.g.cs", sourceBuilder.ToString());
@@ -135,7 +142,8 @@ using System.Windows;
 
 					// Something like...
 					//	public static readonly DependencyProperty FooProperty = FooPropertyKey.DependencyProperty;
-					sourceBuilder.AppendLine($"\t\tpublic static readonly DependencyProperty {dpMemberName} = {dpkMemberName}.DependencyProperty;");
+					sourceBuilder.Append($@"
+		public static readonly DependencyProperty {dpMemberName} = {dpkMemberName}.DependencyProperty;");
 				}
 			}
 
@@ -240,8 +248,8 @@ using System.Windows;
 				// Something like...
 				//	public static int GetFoo(DependencyObject d) => (int)d.GetValue(FooProperty);
 				//	private static void SetFoo(DependencyObject d, int value) => d.SetValue(FooPropertyKey);
-				sourceBuilder.AppendLine(
-$@"		{getterAccess} static {generateThis.PropertyTypeName} Get{propertyName}({targetTypeName} d) => ({generateThis.PropertyTypeName})d.GetValue({dpMemberName});
+				sourceBuilder.Append($@"
+		{getterAccess} static {generateThis.PropertyTypeName} Get{propertyName}({targetTypeName} d) => ({generateThis.PropertyTypeName})d.GetValue({dpMemberName});
 		{setterAccess} static void Set{propertyName}({targetTypeName} d, {generateThis.PropertyTypeName} value) => d.SetValue({setterArg0}, value);");
 			}
 			else
@@ -264,18 +272,20 @@ $@"		{getterAccess} static {generateThis.PropertyTypeName} Get{propertyName}({ta
 
 				// Write the instance property source code.
 				string propertyAccess = dpAccess.ToString().ToLower();
-				string setterAccess = generateThis.IsDpk ? dpkAccess.ToString().ToLower() : "";
+				string setterAccess = generateThis.IsDpk ? (dpkAccess.ToString().ToLower() + " ") : "";
 				string setterArg0 = generateThis.IsDpk ? dpkMemberName : dpMemberName;
 
 				// Something like...
-				//	public int Foo {
+				//	public int Foo
+				//	{
 				//		get => (int)this.GetValue(FooProperty);
-				//		set => this.SetValue(FooPropertyKey, value);
+				//		private set => this.SetValue(FooPropertyKey, value);
 				//	}
-				sourceBuilder.AppendLine(
-$@"		{maybeDox}{propertyAccess} {generateThis.PropertyTypeName} {propertyName} {{
+				sourceBuilder.Append($@"
+		{maybeDox}{propertyAccess} {generateThis.PropertyTypeName} {propertyName}
+		{{
 			get => ({generateThis.PropertyTypeName})this.GetValue({dpMemberName});
-			{setterAccess} set => this.SetValue({setterArg0}, value);
+			{setterAccess}set => this.SetValue({setterArg0}, value);
 		}}");
 			}
 
@@ -304,32 +314,32 @@ $@"		{maybeDox}{propertyAccess} {generateThis.PropertyTypeName} {propertyName} {
 				parameters = string.Join(", ", @params, 0, numParams);
 			}
 
-			sourceBuilder.AppendLine(
-$@"		private static partial class {genClassDecl} {{
-			/// <summary>
-			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{ReplaceBrackets(generateThis.PropertyTypeName)}""/>.{moreDox}
-			/// </summary>
-			public static {returnType} {propertyName}<__T>({parameters}) {{");
-
-			sourceBuilder.Append("\t\t\t\t");
-			sourceBuilder.AppendLine(this.GetPropertyMetadataDeclaration(generateThis, hasDefaultValue, hasFlags));
-
 			string a = generateThis.IsAttached ? "Attached" : "";
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
 			string ownerTypeName = GetTypeName(generateThis.FieldSymbol.ContainingType);
-			sourceBuilder.AppendLine(
-$@"				return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata);
+
+			sourceBuilder.Append($@"
+		private static partial class {genClassDecl}
+		{{
+			/// <summary>
+			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{ReplaceBrackets(generateThis.PropertyTypeName)}""/>.{moreDox}
+			/// </summary>
+			public static {returnType} {propertyName}<__T>({parameters})
+			{{
+				var metadata = {this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasFlags)};
+				return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata);
 			}}
-		}}");
+		}}
+");
 		}
 
 		/// <summary>
-		/// Gets source text that declares the property metadata variable named "metadata".
+		/// Gets source text that creates the property metadata object.
 		/// Accounts for whether a default value exists.
 		/// Accounts for whether a compatible property-changed handler exists.
 		/// Accounts for whether a compatible coercion handler exists.
 		/// </summary>
-		private string GetPropertyMetadataDeclaration(GenerationDetails generateThis, bool hasDefaultValue, bool hasFlags)
+		private string GetPropertyMetadataInstance(GenerationDetails generateThis, bool hasDefaultValue, bool hasFlags)
 		{
 			INamedTypeSymbol ownerType = generateThis.FieldSymbol.ContainingType;
 			string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
@@ -557,26 +567,26 @@ $@"				return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T)
 			if (hasFlags)
 			{
 				string defaultValue = hasDefaultValue ? "defaultValue" : "default(__T)";
-				return $"FrameworkPropertyMetadata metadata = new FrameworkPropertyMetadata({defaultValue}, flags, {changeHandler}, {coercionHandler});";
+				return $"new FrameworkPropertyMetadata({defaultValue}, flags, {changeHandler}, {coercionHandler})";
 			}
 
 			if (hasDefaultValue)
 			{
-				return $"PropertyMetadata metadata = new PropertyMetadata(defaultValue, {changeHandler}, {coercionHandler});";
+				return $"new PropertyMetadata(defaultValue, {changeHandler}, {coercionHandler})";
 			}
 
 			if (changeHandler != "null")
 			{
-				return $"PropertyMetadata metadata = new PropertyMetadata({changeHandler}) {{ CoerceValueCallback = {coercionHandler} }};";
+				return $"new PropertyMetadata({changeHandler}) {{ CoerceValueCallback = {coercionHandler} }}";
 			}
 
 			if (coercionHandler != "null")
 			{
-				return $"PropertyMetadata metadata = new PropertyMetadata() {{ CoerceValueCallback = {coercionHandler} }};";
+				return $"new PropertyMetadata() {{ CoerceValueCallback = {coercionHandler} }}";
 			}
 
 			string nullLiteral = this.useNullableContext ? "null!" : "null";
-			return $"PropertyMetadata metadata = {nullLiteral};";
+			return $"(PropertyMetadata){nullLiteral}";
 		}
 
 		/// <summary>

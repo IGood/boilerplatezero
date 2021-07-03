@@ -11,6 +11,9 @@ namespace Bpz.Test
 		public static readonly DependencyProperty MyBool1Property = Gen.MyBool1<bool>();
 		public static readonly DependencyProperty MyBool2Property = Gen.MyBool2((bool?)false);
 
+		/// <summary>
+		/// Test dox! Gets or sets a string value or something.
+		/// </summary>
 		public static readonly DependencyProperty MyString0Property = Gen.MyString0("asdf");
 		public static readonly DependencyProperty MyString1Property = Gen.MyString1<string?>();
 		public static readonly DependencyProperty MyString2Property = Gen.MyString2(default(string?));
