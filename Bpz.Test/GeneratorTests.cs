@@ -25,11 +25,21 @@ namespace Bpz.Test
 		[TestCase("PropertyChangedHandlers.cs")]
 		[TestCase("Coercion.cs")]
 		[TestCase("FxPropMetadata.cs")]
-		public void GenStuff(string resourceName)
+		public void GenProps(string resourceName)
 		{
 			using var source = Resources.GetEmbeddedResource(resourceName);
 			var sourceText = SourceText.From(source);
 			GeneratorHost.RunGenerator(sourceText, new DependencyPropertyGenerator());
+		}
+
+		// These aren't really tests, but we do get to set breakpoints & step through our source generator with these.
+		[TestCase("RoutedEvent1.cs")]
+		[TestCase("AttachedEvent1.cs")]
+		public void GenEvents(string resourceName)
+		{
+			using var source = Resources.GetEmbeddedResource(resourceName);
+			var sourceText = SourceText.From(source);
+			GeneratorHost.RunGenerator(sourceText, new RoutedEventGenerator());
 		}
 	}
 
