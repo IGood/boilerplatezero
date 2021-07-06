@@ -27,7 +27,7 @@ Additionally...
 🔗 Jump to...
 - [👩‍💻 Write This, Not That](#-write-this-not-that-property-examples)
 - [🤖 Generated Code Example](#-generated-code)
-- [✨ Features List](#-features)
+- [✨ Features List](#property-features)
 
 ----
 
@@ -146,7 +146,7 @@ namespace Goodies
 
 ----
 
-### ✨ Features
+### ✨ Features<a name=property-features></a>
 
 - generates instance properties for dependency properties
 - generates static methods for attached properties
@@ -323,7 +323,7 @@ public static void RemoveThingUpdatedHandler(DependencyObject d, RoutedEventHand
 
 ----
 
-### ✨ Features <a name=event-features></a>
+### ✨ Features<a name=event-features></a>
 
 - generates instance events for routed events
 - generates static methods for attached events
