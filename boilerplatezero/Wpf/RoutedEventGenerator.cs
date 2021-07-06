@@ -144,6 +144,7 @@ using System.Windows;
 								genTypeArg = genTypeArg.WithNullableAnnotation(NullableAnnotation.Annotated);
 							}
 
+							// Example: Transform `double` into `RoutedPropertyChangedEventHandler<double>`.
 							genTypeArg = this.rpcehTypeSymbol.Construct(genTypeArg);
 						}
 					}
@@ -362,7 +363,7 @@ using System.Windows;
 				{
 					// Looking for "RoutedEvent" as the type of the field...
 					string fieldTypeName = fieldDecl.Declaration.Type.ToString();
-					if (fieldTypeName.LastIndexOf("RoutedEvent", StringComparison.Ordinal) >= 0)
+					if (fieldTypeName.EndsWith("RoutedEvent", StringComparison.Ordinal))
 					{
 						// Looking for field initialization like "= Gen.FooChanged"...
 						var varDecl = fieldDecl.Declaration.Variables.FirstOrDefault();
