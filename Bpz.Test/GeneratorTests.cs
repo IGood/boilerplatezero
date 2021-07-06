@@ -34,6 +34,8 @@ namespace Bpz.Test
 
 		// These aren't really tests, but we do get to set breakpoints & step through our source generator with these.
 		[TestCase("RoutedEvent1.cs")]
+		[TestCase("RoutedEvent2.cs")]
+		[TestCase("RoutedEvent3.cs")]
 		[TestCase("AttachedEvent1.cs")]
 		public void GenEvents(string resourceName)
 		{

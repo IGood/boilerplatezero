@@ -41,6 +41,14 @@ namespace Bpz.Test
 				yield return new()
 				{
 					OwnerType = typeof(MyService),
+					Name = "BarChanged",
+					HandlerType = typeof(RoutedPropertyChangedEventHandler<int>),
+					IsAttached = true,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(MyService),
 					Name = "SomethingPrivateHappened",
 					IsAttached = true,
 					Visibility = MethodAttributes.Private,

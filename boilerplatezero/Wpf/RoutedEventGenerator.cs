@@ -31,6 +31,7 @@ namespace Bpz.Wpf
 		// These will be initialized before first use.
 		private INamedTypeSymbol rehTypeSymbol = null!;  // System.Windows.RoutedEventHandler
 		private INamedTypeSymbol rpcehTypeSymbol = null!;// System.Windows.RoutedPropertyChangedEventHandler<>
+		private INamedTypeSymbol mdTypeSymbol = null!;   // System.MulticastDelegate
 
 		public void Initialize(GeneratorInitializationContext context)
 		{
@@ -58,6 +59,7 @@ namespace Bpz.Wpf
 				// Get these type symbols now so we don't waste time finding them each time we need them later.
 				this.rehTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.RoutedEventHandler")!;
 				this.rpcehTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.RoutedPropertyChangedEventHandler`1")!;
+				this.mdTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.MulticastDelegate")!;
 
 				string namespaceName = namespaceGroup.Key.ToString();
 				sourceBuilder.Append($@"
@@ -125,13 +127,25 @@ using System.Windows;
 					var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
 					genTypeArg = typeInfo.Type;
 
-					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
-					// Note: Nullable value types like `int?` do not have this issue.
-					if (genTypeArg != null &&
-						genTypeArg.IsReferenceType &&
-						typeArgNode is NullableTypeSyntax)
+					if (genTypeArg != null)
 					{
-						genTypeArg = genTypeArg.WithNullableAnnotation(NullableAnnotation.Annotated);
+						// If the type is a multicast delegate, then use it;
+						// otherwise, use the type in a `RoutedPropertyChangedEventHandler<>`.
+						if (genTypeArg.BaseType?.Equals(this.mdTypeSymbol, SymbolEqualityComparer.Default) ?? false)
+						{
+							// Good to go!
+						}
+						else
+						{
+							// A nullable ref type like `string?` loses its annotation here. Let's put it back.
+							// Note: Nullable value types like `int?` do not have this issue.
+							if (genTypeArg.IsReferenceType && typeArgNode is NullableTypeSyntax)
+							{
+								genTypeArg = genTypeArg.WithNullableAnnotation(NullableAnnotation.Annotated);
+							}
+
+							genTypeArg = this.rpcehTypeSymbol.Construct(genTypeArg);
+						}
 					}
 				}
 			}
@@ -219,21 +233,7 @@ using System.Windows;
 
 			// Write the static helper method.
 			string what = generateThis.IsAttached ? "an attached event" : "a routed event";
-
-			string maybeGeneric, maybeGenericConstraint, handlerTypeName;
-			if (genTypeArg != null)
-			{
-				maybeGeneric = "<__T>";
-				maybeGenericConstraint = " where __T : System.Delegate";
-				handlerTypeName = "__T";
-			}
-			else
-			{
-				maybeGeneric = "";
-				maybeGenericConstraint = "";
-				handlerTypeName = generateThis.EventHandlerTypeName;
-			}
-
+			string? maybeGeneric = (genTypeArg != null) ? "<__T>" : null;
 			string ownerTypeName = GetTypeName(generateThis.FieldSymbol.ContainingType);
 
 			sourceBuilder.Append($@"
@@ -242,9 +242,9 @@ using System.Windows;
 			/// <summary>
 			/// Registers {what} named ""{eventName}"" whose handler type is <see cref=""{ReplaceBrackets(generateThis.EventHandlerTypeName)}""/>.{moreDox}
 			/// </summary>
-			public static RoutedEvent {eventName}{maybeGeneric}(RoutingStrategy routingStrategy = RoutingStrategy.Direct){maybeGenericConstraint}
+			public static RoutedEvent {eventName}{maybeGeneric}(RoutingStrategy routingStrategy = RoutingStrategy.Direct)
 			{{
-				return EventManager.RegisterRoutedEvent(""{eventName}"", routingStrategy, typeof({handlerTypeName}), typeof({ownerTypeName}));
+				return EventManager.RegisterRoutedEvent(""{eventName}"", routingStrategy, typeof({generateThis.EventHandlerTypeName}), typeof({ownerTypeName}));
 			}}
 		}}
 ");

@@ -1,6 +1,7 @@
 // Copyright © Ian Good
 
 using NUnit.Framework;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Windows;
 
@@ -12,36 +13,51 @@ namespace Bpz.Test
 	/// </summary>
 	public class MyControlTests
 	{
-		[Test(Description = "Routed event properties should have expected values.")]
-		public void ExpectEventProperties()
+		[TestCaseSource(nameof(MetadataTestCases))]
+		public void ExpectMetadata(RoutedEventAssert.RoutedEventValues testCase)
 		{
-			RoutedEventAssert.Matches(new()
-			{
-				OwnerType = typeof(MyControl),
-				Name = "FooChanged",
-				HandlerType = typeof(RoutedPropertyChangedEventHandler<int>),
-			});
+			RoutedEventAssert.Matches(testCase);
+		}
 
-			RoutedEventAssert.Matches(new()
+		public static IEnumerable<RoutedEventAssert.RoutedEventValues> MetadataTestCases
+		{
+			get
 			{
-				OwnerType = typeof(MyControl),
-				Name = "ThingUpdated",
-				RoutingStrategy = RoutingStrategy.Bubble,
-			});
+				yield return new()
+				{
+					OwnerType = typeof(MyControl),
+					Name = "FooChanged",
+					HandlerType = typeof(RoutedPropertyChangedEventHandler<int>),
+				};
 
-			RoutedEventAssert.Matches(new()
-			{
-				OwnerType = typeof(MyControl),
-				Name = "SomethingProtectedHappened",
-				Visibility = MethodAttributes.Family,
-			});
+				yield return new()
+				{
+					OwnerType = typeof(MyControl),
+					Name = "BarChanged",
+					HandlerType = typeof(RoutedPropertyChangedEventHandler<int>),
+				};
 
-			RoutedEventAssert.Matches(new()
-			{
-				OwnerType = typeof(MyControl),
-				Name = "SomethingPrivateHappened",
-				Visibility = MethodAttributes.Private,
-			});
+				yield return new()
+				{
+					OwnerType = typeof(MyControl),
+					Name = "ThingUpdated",
+					RoutingStrategy = RoutingStrategy.Bubble,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(MyControl),
+					Name = "SomethingProtectedHappened",
+					Visibility = MethodAttributes.Family,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(MyControl),
+					Name = "SomethingPrivateHappened",
+					Visibility = MethodAttributes.Private,
+				};
+			}
 		}
 
 		[Test(Description = "Event handlers should get called.")]

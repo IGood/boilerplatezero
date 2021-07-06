@@ -10,6 +10,8 @@ namespace Bpz.Test
 
 		public static readonly RoutedEvent FooChangedEvent = GenAttached.FooChanged<RoutedPropertyChangedEventHandler<int>>(RoutingStrategy.Bubble);
 
+		public static readonly RoutedEvent BarChangedEvent = GenAttached.BarChanged<int>();
+
 		private static readonly RoutedEvent SomethingPrivateHappenedEvent = GenAttached.SomethingPrivateHappened();
 	}
 }
