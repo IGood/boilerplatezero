@@ -7,7 +7,7 @@ namespace Bpz.CodeAnalysis
 {
 	public static class Diagnostics
 	{
-		private const string HelpLinkUri = "https://github.com/IGood/boilerplatezero#readme";
+		public const string HelpLinkUri = "https://github.com/IGood/boilerplatezero#readme";
 
 		private static readonly DiagnosticDescriptor MismatchedIdentifiersError = new(
 			id: "BPZ0001",
