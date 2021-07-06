@@ -2,6 +2,8 @@
 
 using NUnit.Framework;
 using System;
+using System.Collections.Generic;
+using System.Reflection;
 
 namespace Bpz.Test
 {
@@ -11,26 +13,103 @@ namespace Bpz.Test
 	/// </summary>
 	public class WidgetTests
 	{
-		[Test(Description = "Checks default values.")]
-		public void ExpectDefaults()
+		[TestCaseSource(nameof(MetadataTestCases))]
+		public void ExpectMetadata(DependencyPropertyAssert.DependencyPropertyValues testCase)
 		{
-			var w = new Widget();
+			DependencyPropertyAssert.Matches(testCase);
+		}
 
-			Assert.AreEqual(true, w.MyBool0);
-			Assert.AreEqual(false, w.MyBool1);
-			Assert.AreEqual(false, w.MyBool2);
+		public static IEnumerable<DependencyPropertyAssert.DependencyPropertyValues> MetadataTestCases
+		{
+			get
+			{
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyBool0",
+					PropertyType = typeof(bool),
+					DefaultValue = true,
+				};
 
-			Assert.AreEqual("asdf", w.MyString0);
-			Assert.AreEqual(null, w.MyString1);
-			Assert.AreEqual(null, w.MyString2);
-			Assert.AreEqual("qwer", w.MyString3);
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyBool1",
+					PropertyType = typeof(bool),
+				};
 
-			Assert.AreEqual(3.14f, w.MyFloat0);
-			Assert.AreEqual(0, w.MyFloat1);
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyBool2",
+					PropertyType = typeof(bool?),
+					DefaultValue = false,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyString0",
+					PropertyType = typeof(string),
+					DefaultValue = "asdf",
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyString1",
+					PropertyType = typeof(string),
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyString2",
+					PropertyType = typeof(string),
+					DefaultValue = null,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyString3",
+					PropertyType = typeof(string),
+					DefaultValue = "qwer",
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyFloat0",
+					PropertyType = typeof(float),
+					DefaultValue = 3.14f,
+					IsReadOnly = true,
+					SetterAttributes = MethodAttributes.Private,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyFloat1",
+					PropertyType = typeof(float),
+					IsReadOnly = true,
+					SetterAttributes = MethodAttributes.Family,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
+					Name = "MyNinja",
+					PropertyType = typeof(Widget).GetNestedType("NinjaTurtle", BindingFlags.NonPublic)!,
+					IsReadOnly = true,
+					GetterAttributes = MethodAttributes.Family,
+					SetterAttributes = MethodAttributes.Private,
+				};
+			}
 		}
 
 		[Test(Description = "Change-handers should raise events.")]
-		public void ExpectEvents()
+		public void ExpectEventHandlers()
 		{
 			var w = new Widget();
 

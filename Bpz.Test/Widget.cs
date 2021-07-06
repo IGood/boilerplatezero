@@ -60,5 +60,16 @@ namespace Bpz.Test
 		public void SetMyFloat1(float value) => this.MyFloat1 = value;
 
 		public event EventHandler? MyFloat1Changed;
+
+		private static readonly DependencyPropertyKey MyNinjaPropertyKey = Gen.MyNinja<NinjaTurtle>();
+		protected static readonly DependencyProperty MyNinjaProperty = MyNinjaPropertyKey.DependencyProperty;
+
+		protected enum NinjaTurtle
+		{
+			Leo,
+			Raph,
+			Mike,
+			Don,
+		}
 	}
 }

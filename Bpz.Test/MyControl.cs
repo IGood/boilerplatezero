@@ -21,5 +21,9 @@ namespace Bpz.Test
 		{
 			this.RaiseEvent(new RoutedEventArgs(ThingUpdatedEvent, this));
 		}
+
+		protected static readonly RoutedEvent SomethingProtectedHappenedEvent = Gen.SomethingProtectedHappened();
+
+		private static readonly RoutedEvent SomethingPrivateHappenedEvent = Gen.SomethingPrivateHappened();
 	}
 }

@@ -1,30 +1,51 @@
 // Copyright © Ian Good
 
 using NUnit.Framework;
+using System.Collections.Generic;
+using System.Reflection;
 using System.Windows;
 
 namespace Bpz.Test
 {
 	/// <summary>
-	/// Exercises basic attached property behavior.
-	/// This won't compile if the properties we expect weren't generated.
+	/// Exercises basic attached event behavior.
 	/// </summary>
 	public class MyServiceTests
 	{
-		[Test(Description = "Attached event properties should have expected values.")]
-		public void ExpectEventProperties()
+		[TestCaseSource(nameof(MetadataTestCases))]
+		public void ExpectMetadata(RoutedEventAssert.RoutedEventValues testCase)
 		{
-			RoutedEventTestOps.AssertValues<RoutedEventHandler>(
-				MyService.ThingUpdatedEvent, "ThingUpdated", RoutingStrategy.Direct, typeof(MyService));
-
-			RoutedEventTestOps.AssertValues<RoutedPropertyChangedEventHandler<int>>(
-				MyService.FooChangedEvent, "FooChanged", RoutingStrategy.Bubble, typeof(MyService));
+			RoutedEventAssert.Matches(testCase);
 		}
 
-		[Test(Description = "Event handlers should get called.")]
-		public void ExpectEvents()
+		public static IEnumerable<RoutedEventAssert.RoutedEventValues> MetadataTestCases
 		{
-			// TODO
+			get
+			{
+				yield return new()
+				{
+					OwnerType = typeof(MyService),
+					Name = "ThingUpdated",
+					IsAttached = true,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(MyService),
+					Name = "FooChanged",
+					HandlerType = typeof(RoutedPropertyChangedEventHandler<int>),
+					RoutingStrategy = RoutingStrategy.Bubble,
+					IsAttached = true,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(MyService),
+					Name = "SomethingPrivateHappened",
+					IsAttached = true,
+					Visibility = MethodAttributes.Private,
+				};
+			}
 		}
 	}
 }
