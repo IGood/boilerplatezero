@@ -1,5 +1,6 @@
 ﻿// Copyright © Ian Good
 
+using Bpz.CodeAnalysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -598,6 +599,12 @@ using System.Windows;
 			INamedTypeSymbol? dpTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.DependencyProperty");
 			INamedTypeSymbol? dpkTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyKey");
 
+			if (dpTypeSymbol == null || dpkTypeSymbol == null)
+			{
+				// This probably never happens, but whatevs.
+				yield break;
+			}
+
 			foreach (var gd in requests)
 			{
 				var model = context.Compilation.GetSemanticModel(gd.MethodNameNode.SyntaxTree);
@@ -623,7 +630,7 @@ using System.Windows;
 					}
 					else
 					{
-						context.ReportDiagnostic(Diagnostics.UnexpectedFieldType(fieldSymbol));
+						context.ReportDiagnostic(Diagnostics.UnexpectedFieldType(fieldSymbol, dpTypeSymbol, dpkTypeSymbol));
 					}
 				}
 			}
@@ -812,52 +819,6 @@ using System.Windows;
 			/// Gets or sets the name of the type of the dependency property.
 			/// </summary>
 			public string PropertyTypeName { get; set; } = "object";
-		}
-
-		private static class Diagnostics
-		{
-			private static readonly DiagnosticDescriptor MismatchedIdentifiersError = new(
-				id: "BPZ0001",
-				title: "Mismatched identifiers",
-				messageFormat: "Field name '{0}' and method name '{1}' do not match. Expected '{2} = {3}'.",
-				category: "Naming",
-				defaultSeverity: DiagnosticSeverity.Error,
-				isEnabledByDefault: true,
-				description: null,
-				helpLinkUri: HelpLinkUri,
-				customTags: WellKnownDiagnosticTags.Compiler);
-
-			public static Diagnostic MismatchedIdentifiers(IFieldSymbol fieldSymbol, string methodName, string expectedFieldName, string initializer)
-			{
-				return Diagnostic.Create(
-					descriptor: MismatchedIdentifiersError,
-					location: fieldSymbol.Locations[0],
-					fieldSymbol.Name,
-					methodName,
-					expectedFieldName,
-					initializer);
-			}
-
-			private static readonly DiagnosticDescriptor UnexpectedFieldTypeError = new(
-				id: "BPZ1001",
-				title: "Unexpected field type",
-				messageFormat: "'{0}.{1}' has unexpected type '{2}'. Expected 'System.Windows.DependencyProperty' or 'System.Windows.DependencyPropertyKey'.",
-				category: "Types",
-				defaultSeverity: DiagnosticSeverity.Error,
-				isEnabledByDefault: true,
-				description: null,
-				helpLinkUri: HelpLinkUri,
-				customTags: WellKnownDiagnosticTags.Compiler);
-
-			public static Diagnostic UnexpectedFieldType(IFieldSymbol fieldSymbol)
-			{
-				return Diagnostic.Create(
-					descriptor: UnexpectedFieldTypeError,
-					location: fieldSymbol.Locations[0],
-					fieldSymbol.ContainingType.Name,
-					fieldSymbol.Name,
-					fieldSymbol.Type.ToDisplayString());
-			}
 		}
 	}
 }

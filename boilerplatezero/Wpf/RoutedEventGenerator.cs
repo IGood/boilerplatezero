@@ -1,5 +1,6 @@
 ﻿// Copyright © Ian Good
 
+using Bpz.CodeAnalysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -258,6 +259,11 @@ using System.Windows;
 		private static IEnumerable<GenerationDetails> UpdateAndFilterGenerationRequests(GeneratorExecutionContext context, IEnumerable<GenerationDetails> requests)
 		{
 			INamedTypeSymbol? reTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.RoutedEvent");
+			if (reTypeSymbol == null)
+			{
+				// This probably never happens, but whatevs.
+				yield break;
+			}
 
 			foreach (var gd in requests)
 			{
@@ -282,7 +288,7 @@ using System.Windows;
 					}
 					else
 					{
-						context.ReportDiagnostic(Diagnostics.UnexpectedFieldType(fieldSymbol));
+						context.ReportDiagnostic(Diagnostics.UnexpectedFieldType(fieldSymbol, reTypeSymbol));
 					}
 				}
 			}
@@ -427,52 +433,6 @@ using System.Windows;
 			/// Gets or sets the name of the type of the routed event handler.
 			/// </summary>
 			public string EventHandlerTypeName { get; set; } = "RoutedEventHandler";
-		}
-
-		private static class Diagnostics
-		{
-			private static readonly DiagnosticDescriptor MismatchedIdentifiersError = new(
-				id: "BPZ0001",
-				title: "Mismatched identifiers",
-				messageFormat: "Field name '{0}' and method name '{1}' do not match. Expected '{2} = {3}'.",
-				category: "Naming",
-				defaultSeverity: DiagnosticSeverity.Error,
-				isEnabledByDefault: true,
-				description: null,
-				helpLinkUri: HelpLinkUri,
-				customTags: WellKnownDiagnosticTags.Compiler);
-
-			public static Diagnostic MismatchedIdentifiers(IFieldSymbol fieldSymbol, string methodName, string expectedFieldName, string initializer)
-			{
-				return Diagnostic.Create(
-					descriptor: MismatchedIdentifiersError,
-					location: fieldSymbol.Locations[0],
-					fieldSymbol.Name,
-					methodName,
-					expectedFieldName,
-					initializer);
-			}
-
-			private static readonly DiagnosticDescriptor UnexpectedFieldTypeError = new(
-				id: "BPZ1002",
-				title: "Unexpected field type",
-				messageFormat: "'{0}.{1}' has unexpected type '{2}'. Expected 'System.Windows.RoutedEvent'.",
-				category: "Types",
-				defaultSeverity: DiagnosticSeverity.Error,
-				isEnabledByDefault: true,
-				description: null,
-				helpLinkUri: HelpLinkUri,
-				customTags: WellKnownDiagnosticTags.Compiler);
-
-			public static Diagnostic UnexpectedFieldType(IFieldSymbol fieldSymbol)
-			{
-				return Diagnostic.Create(
-					descriptor: UnexpectedFieldTypeError,
-					location: fieldSymbol.Locations[0],
-					fieldSymbol.ContainingType.Name,
-					fieldSymbol.Name,
-					fieldSymbol.Type.ToDisplayString());
-			}
 		}
 	}
 }
