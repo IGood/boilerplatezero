@@ -5,6 +5,11 @@
 
 boilerplatezero (BPZ) is a collection of C# source generators that simplify the code required for common C# patterns.
 
+🔗 Jump to...
+- [WPF Dependency Property Generator](#wpf-dependency-property-generator)
+- [WPF Routed Event Generator](#wpf-routed-event-generator)
+- [🐛 Known Issues List](#-known-issues)
+
 ----
 
 ## WPF Dependency Property Generator
@@ -20,16 +25,15 @@ Additionally...
 - If an appropriate coercion method is found, then it will be used during registration.
 
 🔗 Jump to...
-- [👩‍💻 Write This, Not That](#-write-this-not-that-examples)
+- [👩‍💻 Write This, Not That](#-write-this-not-that-property-examples)
 - [🤖 Generated Code Example](#-generated-code)
 - [✨ Features List](#-features)
-- [🐛 Known Issues List](#-known-issues)
 
 ----
 
-### 👩‍💻 Write This, Not That: Examples
+### 👩‍💻 Write This, Not That: Property Examples
 
-#### 🛠 Dependency Property
+#### 🔧 Dependency Property
 
 ```csharp
 // Write this (using BPZ):
@@ -69,7 +73,7 @@ protected virtual void OnTextChanged(string oldText, string newText) { ... }
 ```
 </details>
 
-#### 🛠 Attached Property
+#### 🔧 Attached Property
 
 ```csharp
 // Write this (using BPZ):
@@ -142,7 +146,7 @@ namespace Goodies
 
 ----
 
-### ✨ Features 
+### ✨ Features
 
 - generates instance properties for dependency properties
 - generates static methods for attached properties
@@ -254,7 +258,7 @@ namespace Goodies
   }
   ```
   </details>
-- <details><summary>attached properties may constrain their target type by specifying a generic type parameter on <code>GenAttached</code></summary>
+- <details><summary>attached properties may constrain their target type by specifying a generic type argument on <code>GenAttached</code></summary>
 
   ```csharp
   // 👩‍💻 user
@@ -272,6 +276,66 @@ namespace Goodies
   public static void SetIsFancy(Goodies.Widget d, bool value) => d.SetValue(IsFancyProperty, value);
   ```
   </details>
+
+----
+
+## WPF Routed Event Generator
+
+Similar to dependency properties, routed events always use the same pattern when implemented correctly.
+
+The routed event generator in BPZ works by identifying `RoutedEvent` fields that are initialized with calls to appropriately-named `Gen` or `GenAttached` methods.<br>
+When this happens, the source generator adds private static classes as nested types inside your class &amp; implements the routed event for you.
+
+🔗 Jump to...
+- [👩‍💻 Write This, Not That](#-write-this-not-that-event-examples)
+- [✨ Features List](#-features-1)
+
+----
+
+### 👩‍💻 Write This, Not That: Event Examples
+
+#### ⚡ Routed Event
+
+```csharp
+// Write this (using BPZ):
+public static readonly RoutedEvent FooChangedEvent = Gen.FooChanged<string>();
+
+// Not that (idiomatic implementation):
+public static readonly RoutedEvent FooChangedEvent = EventManager.RegisterRoutedEvent(nameof(FooChanged), RoutingStrategy.Direct, typeof(RoutedPropertyChangedEventHandler<string>), typeof(MyClass));
+public RoutedPropertyChangedEventHandler<string> FooChanged
+{
+    add => this.AddHandler(FooChangedEvent, value);
+    remove => this.RemoveHandler(FooChangedEvent, value);
+}
+```
+
+#### ⚡ Attached Event
+
+```csharp
+// Write this (using BPZ):
+public static readonly RoutedEvent ThingUpdatedEvent = GenAttached.ThingUpdatedChanged(RoutingStrategy.Bubble);
+
+// Not that (idiomatic implementation):
+public static readonly RoutedEvent ThingUpdatedEvent = EventManager.RegisterRoutedEvent(nameof(BarChanged), RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(MyClass));
+public static void AddThingUpdatedHandler(DependencyObject d, RoutedEventHandler handler) => (d as UIElement)?.AddHandler(BarChangedEvent, handler);
+public static void RemoveThingUpdatedHandler(DependencyObject d, RoutedEventHandler handler) => (d as UIElement)?.RemoveHandler(BarChangedEvent, handler);
+```
+
+----
+
+### ✨ Features
+
+- generates instance events for routed events
+- generates static methods for attached events
+- handler type may be specified via generic type argument on the generator method (e.g. `Gen.FooChanged<RoutedPropertyChangedEventHandler<string>()`)
+- handler type is optional (default is `RoutedEventHandler`)
+- handler types that are **not** delegates (e.g. `Gen.FooChanged<string>()`) are treated as `RoutedPropertyChangedEventHandler<T>` with the specified type
+- routing strategy may be specified via generator method argument (e.g. `Gen.ThingUpdated(RoutingStrategy.Bubble)`)
+- routing strategy is optional (default is `RoutingStrategy.Direct`)
+- supports generic owner types
+- access modifiers are preserved on generated members
+- documentation is preserved (for routed events) on generated members
+- attached events may constrain their target type by specifying a generic type argument on `GenAttached`
 
 ----
 

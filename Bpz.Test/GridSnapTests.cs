@@ -1,6 +1,7 @@
 // Copyright © Ian Good
 
 using NUnit.Framework;
+using System.Collections.Generic;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,17 +15,41 @@ namespace Bpz.Test
 	[Apartment(ApartmentState.STA)]
 	public class GridSnapTests
 	{
-		[Test(Description = "Checks default values.")]
-		public void ExpectDefaults()
+		[TestCaseSource(nameof(MetadataTestCases))]
+		public void ExpectMetadata(DependencyPropertyAssert.DependencyPropertyValues testCase)
 		{
-			var c = new Canvas();
+			DependencyPropertyAssert.Matches(testCase);
+		}
 
-			Assert.AreEqual(false, GridSnap.GetIsEnabled(c));
-			Assert.AreEqual(100, GridSnap.GetCellSize(c));
+		public static IEnumerable<DependencyPropertyAssert.DependencyPropertyValues> MetadataTestCases
+		{
+			get
+			{
+				yield return new()
+				{
+					OwnerType = typeof(GridSnap),
+					Name = "IsEnabled",
+					PropertyType = typeof(bool),
+					DefaultValue = false,
+					AttachmentNarrowingType = typeof(UIElement),
+					Flags = FrameworkPropertyMetadataOptions.Inherits,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(GridSnap),
+					Name = "CellSize",
+					PropertyType = typeof(double),
+					DefaultValue = 100.0,
+					AttachmentNarrowingType = typeof(Canvas),
+					Flags = FrameworkPropertyMetadataOptions.Inherits,
+				};
+
+			}
 		}
 
 		[Test(Description = "Change-handers should raise events.")]
-		public void ExpectEvents()
+		public void ExpectEventHandlers()
 		{
 			var c = new Canvas();
 
