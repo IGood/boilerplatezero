@@ -27,7 +27,7 @@ Additionally...
 🔗 Jump to...
 - [👩‍💻 Write This, Not That](#-write-this-not-that-property-examples)
 - [🤖 Generated Code Example](#-generated-code)
-- [✨ Features List](#property-features)
+- [✨ Features List](#-features)
 
 ----
 
@@ -146,7 +146,7 @@ namespace Goodies
 
 ----
 
-### ✨ Features<a name=property-features></a>
+### ✨ Features
 
 - generates instance properties for dependency properties
 - generates static methods for attached properties
@@ -288,7 +288,7 @@ When this happens, the source generator adds private static classes as nested ty
 
 🔗 Jump to...
 - [👩‍💻 Write This, Not That](#-write-this-not-that-event-examples)
-- [✨ Features List](#event-features)
+- [✨ Features List](#-features-1)
 
 ----
 
@@ -323,7 +323,7 @@ public static void RemoveThingUpdatedHandler(DependencyObject d, RoutedEventHand
 
 ----
 
-### ✨ Features<a name=event-features></a>
+### ✨ Features
 
 - generates instance events for routed events
 - generates static methods for attached events
