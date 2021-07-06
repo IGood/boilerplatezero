@@ -20,11 +20,12 @@
     <Description>boilerplatezero (BPZ) is a collection of C# source generators that simplify the code required for common C# patterns.
 Included generators:
 - DependencyPropertyGenerator - generates idiomatic WPF dependency property code
+- RoutedEventGenerator - generates idiomatic WPF routed event code
     </Description>
     <PackageProjectUrl>https://github.com/IGood/boilerplatezero</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IGood/boilerplatezero.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>bpz,source generator,wpf,dependency properties</PackageTags>
+    <PackageTags>bpz,source generator,wpf,dependency properties, routed events</PackageTags>
     <PackageIcon>bpz logo dark.png</PackageIcon>
   </PropertyGroup>
 
