@@ -146,7 +146,7 @@ namespace Goodies
 
 ----
 
-### ✨ Features 
+### ✨ Features
 
 - generates instance properties for dependency properties
 - generates static methods for attached properties
@@ -288,7 +288,7 @@ When this happens, the source generator adds private static classes as nested ty
 
 🔗 Jump to...
 - [👩‍💻 Write This, Not That](#-write-this-not-that-event-examples)
-- [✨ Features List](#-features)
+- [✨ Features List](#event-features)
 
 ----
 
@@ -323,7 +323,7 @@ public static void RemoveThingUpdatedHandler(DependencyObject d, RoutedEventHand
 
 ----
 
-### ✨ Features 
+### ✨ Features <a name=event-features></a>
 
 - generates instance events for routed events
 - generates static methods for attached events
