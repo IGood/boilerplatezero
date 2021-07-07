@@ -302,7 +302,7 @@ public static readonly RoutedEvent FooChangedEvent = Gen.FooChanged<string>();
 
 // Not that (idiomatic implementation):
 public static readonly RoutedEvent FooChangedEvent = EventManager.RegisterRoutedEvent(nameof(FooChanged), RoutingStrategy.Direct, typeof(RoutedPropertyChangedEventHandler<string>), typeof(MyClass));
-public RoutedPropertyChangedEventHandler<string> FooChanged
+public event RoutedPropertyChangedEventHandler<string> FooChanged
 {
     add => this.AddHandler(FooChangedEvent, value);
     remove => this.RemoveHandler(FooChangedEvent, value);
