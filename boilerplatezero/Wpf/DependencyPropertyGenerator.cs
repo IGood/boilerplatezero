@@ -6,7 +6,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 
@@ -74,7 +73,7 @@ namespace {namespaceName}
 				foreach (var classGroup in namespaceGroup)
 				{
 					string? maybeStatic = classGroup.Key.IsStatic ? "static " : null;
-					string className = GetTypeName((INamedTypeSymbol)classGroup.Key);
+					string className = GeneratorOps.GetTypeName((INamedTypeSymbol)classGroup.Key);
 					sourceBuilder.Append($@"
 	{maybeStatic}partial class {className}
 	{{");
@@ -179,7 +178,7 @@ using System.Windows;
 			ArgumentSyntax? defaultValueArgNode = null;
 			ITypeSymbol? typeOfFirstArg = null;
 			bool hasFlags = false;
-			if (TryGetAncestor(generateThis.MethodNameNode, out InvocationExpressionSyntax? invocationExpressionNode))
+			if (GeneratorOps.TryGetAncestor(generateThis.MethodNameNode, out InvocationExpressionSyntax? invocationExpressionNode))
 			{
 				var args = invocationExpressionNode.ArgumentList.Arguments;
 				if (args.Count > 0)
@@ -230,7 +229,7 @@ using System.Windows;
 						if (generateThis.AttachmentNarrowingType != null)
 						{
 							targetTypeName = generateThis.AttachmentNarrowingType.ToDisplayString();
-							moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{ReplaceBrackets(targetTypeName)}""/>.";
+							moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{GeneratorOps.ReplaceBrackets(targetTypeName)}""/>.";
 						}
 					}
 				}
@@ -257,7 +256,7 @@ using System.Windows;
 
 				// Let's include the documentation because that's nice.
 				string? maybeDox = null;
-				if (TryGetAncestor(generateThis.MethodNameNode, out FieldDeclarationSyntax? fieldDeclNode))
+				if (GeneratorOps.TryGetAncestor(generateThis.MethodNameNode, out FieldDeclarationSyntax? fieldDeclNode))
 				{
 					maybeDox = fieldDeclNode
 						.DescendantTrivia()
@@ -315,13 +314,13 @@ using System.Windows;
 
 			string a = generateThis.IsAttached ? "Attached" : "";
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
-			string ownerTypeName = GetTypeName(generateThis.FieldSymbol.ContainingType);
+			string ownerTypeName = GeneratorOps.GetTypeName(generateThis.FieldSymbol.ContainingType);
 
 			sourceBuilder.Append($@"
 		private static partial class {genClassDecl}
 		{{
 			/// <summary>
-			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{ReplaceBrackets(generateThis.PropertyTypeName)}""/>.{moreDox}
+			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{GeneratorOps.ReplaceBrackets(generateThis.PropertyTypeName)}""/>.{moreDox}
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{
@@ -635,27 +634,6 @@ using System.Windows;
 		}
 
 		/// <summary>
-		/// Traverses the syntax tree upward from <paramref name="syntaxNode"/> and returns the first node of type
-		/// <typeparamref name="T"/> if one exists.
-		/// </summary>
-		private static bool TryGetAncestor<T>(SyntaxNode syntaxNode, [NotNullWhen(true)] out T? ancestorSyntaxNode) where T : SyntaxNode
-		{
-			if (syntaxNode.Parent != null)
-			{
-				if (syntaxNode.Parent is T found)
-				{
-					ancestorSyntaxNode = found;
-					return true;
-				}
-
-				return TryGetAncestor(syntaxNode.Parent, out ancestorSyntaxNode);
-			}
-
-			ancestorSyntaxNode = null;
-			return false;
-		}
-
-		/// <summary>
 		/// Attempts to gets the type of an argument node.
 		/// </summary>
 		private static ITypeSymbol? GetArgumentType(GeneratorExecutionContext context, ArgumentSyntax argumentNode)
@@ -679,51 +657,12 @@ using System.Windows;
 		}
 
 		/// <summary>
-		/// Gets the name of the type including generic type parameters (ex: "Widget&lt;TSomething&gt;").
-		/// </summary>
-		private static string GetTypeName(INamedTypeSymbol typeSymbol)
-		{
-			if (typeSymbol.IsGenericType)
-			{
-				string name = typeSymbol.ToDisplayString();
-				int indexOfAngle = name.IndexOf('<');
-				int indexOfDot = name.LastIndexOf('.', indexOfAngle);
-				return name.Substring(indexOfDot + 1);
-			}
-
-			return typeSymbol.Name;
-		}
-
-		/// <summary>
 		/// Returns <c>true</c> if <paramref name="checkThis"/> can be cast to <paramref name="baseTypeSymbol"/>;
 		/// otherwise, returns <c>false</c>.
 		/// </summary>
 		private static bool CanCastTo(ITypeSymbol checkThis, ITypeSymbol baseTypeSymbol)
 		{
 			return checkThis.Equals(baseTypeSymbol, SymbolEqualityComparer.Default) || (checkThis.BaseType != null && CanCastTo(checkThis.BaseType, baseTypeSymbol));
-		}
-
-		/// <summary>
-		/// Replaces angle brackets ("&lt;&gt;") with curly braces ("{}").
-		/// </summary>
-		private static string ReplaceBrackets(string typeName)
-		{
-			int indexOfBracket = typeName.IndexOf('<');
-			if (indexOfBracket < 0)
-			{
-				return typeName;
-			}
-
-			char[] chars = typeName.ToCharArray();
-
-			for (int i = indexOfBracket; i < chars.Length; ++i)
-			{
-				ref char c = ref chars[i];
-				if (c == '<') c = '{';
-				else if (c == '>') c = '}';
-			}
-
-			return new string(chars);
 		}
 
 		[Flags]
@@ -803,8 +742,8 @@ using System.Windows;
 
 			/// <summary>
 			/// Gets or sets the optional type used to restrict the target type of the attached property.
-			/// For instance, <c>System.Windows.Controls.Button</c> can be specified such that the attached property may
-			/// only be used on objects that derive from <c>Button</c>.
+			/// For instance, <code>System.Windows.Controls.Button</code> can be specified such that the attached property may
+			/// only be used on objects that derive from <code>Button</code>.
 			/// </summary>
 			public ITypeSymbol? AttachmentNarrowingType { get; set; }
 

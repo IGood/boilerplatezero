@@ -6,7 +6,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 
@@ -68,7 +67,7 @@ namespace {namespaceName}
 				foreach (var classGroup in namespaceGroup)
 				{
 					string? maybeStatic = classGroup.Key.IsStatic ? "static " : null;
-					string className = GetTypeName((INamedTypeSymbol)classGroup.Key);
+					string className = GeneratorOps.GetTypeName((INamedTypeSymbol)classGroup.Key);
 					sourceBuilder.Append($@"
 	{maybeStatic}partial class {className}
 	{{");
@@ -177,7 +176,7 @@ using System.Windows;
 						{
 							targetTypeName = generateThis.AttachmentNarrowingType.ToDisplayString();
 							callerExpression = "d";
-							moreDox = $@"<br/>This attached event is only for use with objects of type <see cref=""{ReplaceBrackets(targetTypeName)}""/>.";
+							moreDox = $@"<br/>This attached event is only for use with objects of type <see cref=""{GeneratorOps.ReplaceBrackets(targetTypeName)}""/>.";
 						}
 					}
 				}
@@ -202,7 +201,7 @@ using System.Windows;
 
 				// Let's include the documentation because that's nice.
 				string? maybeDox = null;
-				if (TryGetAncestor(generateThis.MethodNameNode, out FieldDeclarationSyntax? fieldDeclNode))
+				if (GeneratorOps.TryGetAncestor(generateThis.MethodNameNode, out FieldDeclarationSyntax? fieldDeclNode))
 				{
 					maybeDox = fieldDeclNode
 						.DescendantTrivia()
@@ -234,13 +233,13 @@ using System.Windows;
 			// Write the static helper method.
 			string what = generateThis.IsAttached ? "an attached event" : "a routed event";
 			string? maybeGeneric = (genTypeArg != null) ? "<__T>" : null;
-			string ownerTypeName = GetTypeName(generateThis.FieldSymbol.ContainingType);
+			string ownerTypeName = GeneratorOps.GetTypeName(generateThis.FieldSymbol.ContainingType);
 
 			sourceBuilder.Append($@"
 		private static partial class {genClassDecl}
 		{{
 			/// <summary>
-			/// Registers {what} named ""{eventName}"" whose handler type is <see cref=""{ReplaceBrackets(generateThis.EventHandlerTypeName)}""/>.{moreDox}
+			/// Registers {what} named ""{eventName}"" whose handler type is <see cref=""{GeneratorOps.ReplaceBrackets(generateThis.EventHandlerTypeName)}""/>.{moreDox}
 			/// </summary>
 			public static RoutedEvent {eventName}{maybeGeneric}(RoutingStrategy routingStrategy = RoutingStrategy.Direct)
 			{{
@@ -290,66 +289,6 @@ using System.Windows;
 					}
 				}
 			}
-		}
-
-		/// <summary>
-		/// Traverses the syntax tree upward from <paramref name="syntaxNode"/> and returns the first node of type
-		/// <typeparamref name="T"/> if one exists.
-		/// </summary>
-		private static bool TryGetAncestor<T>(SyntaxNode syntaxNode, [NotNullWhen(true)] out T? ancestorSyntaxNode) where T : SyntaxNode
-		{
-			if (syntaxNode.Parent != null)
-			{
-				if (syntaxNode.Parent is T found)
-				{
-					ancestorSyntaxNode = found;
-					return true;
-				}
-
-				return TryGetAncestor(syntaxNode.Parent, out ancestorSyntaxNode);
-			}
-
-			ancestorSyntaxNode = null;
-			return false;
-		}
-
-		/// <summary>
-		/// Gets the name of the type including generic type parameters (ex: "Widget&lt;TSomething&gt;").
-		/// </summary>
-		private static string GetTypeName(INamedTypeSymbol typeSymbol)
-		{
-			if (typeSymbol.IsGenericType)
-			{
-				string name = typeSymbol.ToDisplayString();
-				int indexOfAngle = name.IndexOf('<');
-				int indexOfDot = name.LastIndexOf('.', indexOfAngle);
-				return name.Substring(indexOfDot + 1);
-			}
-
-			return typeSymbol.Name;
-		}
-
-		/// <summary>
-		/// Replaces angle brackets ("&lt;&gt;") with curly braces ("{}").
-		/// </summary>
-		private static string ReplaceBrackets(string typeName)
-		{
-			int indexOfBracket = typeName.IndexOf('<');
-			if (indexOfBracket < 0)
-			{
-				return typeName;
-			}
-
-			char[] chars = typeName.ToCharArray();
-
-			for (int i = indexOfBracket; i < chars.Length; ++i)
-			{
-				ref char c = ref chars[i];
-				if (c == '<') c = '{';
-				else if (c == '>') c = '}';
-			}
-
-			return new string(chars);
 		}
 
 		private class SyntaxReceiver : ISyntaxReceiver
@@ -416,9 +355,9 @@ using System.Windows;
 			public bool IsAttached { get; }
 
 			/// <summary>
-			/// Gets or sets the optional type used to restrict the target type of the attached property.
-			/// For instance, <c>System.Windows.Controls.Button</c> can be specified such that the attached property may
-			/// only be used on objects that derive from <c>Button</c>.
+			/// Gets or sets the optional type used to restrict the target type of the attached event.
+			/// For instance, <code>System.Windows.Controls.Button</code> can be specified such that the attached event may
+			/// only be used on objects that derive from <code>Button</code>.
 			/// </summary>
 			public ITypeSymbol? AttachmentNarrowingType { get; set; }
 
