@@ -1,12 +1,47 @@
 ﻿// Copyright © Ian Good
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 namespace Bpz.CodeAnalysis
 {
 	public static class GeneratorOps
 	{
+		/// <summary>
+		/// Attempts to get the generic type argument of a node.<br/>
+		/// Example: <c>Foo&lt;string?&gt;</c> returns <c>true</c> with <c>string?</c>.
+		/// </summary>
+		public static bool TryGetGenericTypeArgument(GeneratorExecutionContext context, SyntaxNode node, [NotNullWhen(true)] out ITypeSymbol? typeArgument)
+		{
+			if (node is GenericNameSyntax genNameNode)
+			{
+				var typeArgNode = genNameNode.TypeArgumentList.Arguments.FirstOrDefault();
+				if (typeArgNode != null)
+				{
+					var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
+					var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
+					typeArgument = typeInfo.Type;
+
+					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
+					// Note: Nullable value types like `int?` do not have this issue.
+					if (typeArgument != null &&
+						typeArgument.IsReferenceType &&
+						typeArgNode is NullableTypeSyntax)
+					{
+						typeArgument = typeArgument.WithNullableAnnotation(NullableAnnotation.Annotated);
+					}
+
+					return typeArgument != null;
+				}
+			}
+
+			typeArgument = null;
+			return false;
+		}
+
 		/// <summary>
 		/// Traverses the syntax tree upward from <paramref name="syntaxNode"/> and returns the first node of type
 		/// <typeparamref name="T"/> if one exists.
@@ -25,6 +60,27 @@ namespace Bpz.CodeAnalysis
 			}
 
 			ancestorSyntaxNode = null;
+			return false;
+		}
+
+		/// <summary>
+		/// Attempts to get the documentation comment associated with the field syntax node ancestor if one exists.
+		/// </summary>
+		public static bool TryGetDocumentationComment(SyntaxNode syntaxNode, [NotNullWhen(true)] out string? documentationComment)
+		{
+			if (TryGetAncestor(syntaxNode, out FieldDeclarationSyntax? fieldDeclNode))
+			{
+				documentationComment = fieldDeclNode
+					.DescendantTrivia()
+					.FirstOrDefault(t => t.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia))
+					.ToFullString();
+				if (documentationComment.Length != 0)
+				{
+					return true;
+				}
+			}
+
+			documentationComment = null;
 			return false;
 		}
 

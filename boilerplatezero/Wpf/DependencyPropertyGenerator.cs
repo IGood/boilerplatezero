@@ -146,26 +146,7 @@ using System.Windows;
 			}
 
 			// Try to get the generic type argument (if it exists, this will be the type of the property).
-			ITypeSymbol? genTypeArg = null;
-			if (generateThis.MethodNameNode is GenericNameSyntax genMethodNameNode)
-			{
-				var typeArgNode = genMethodNameNode.TypeArgumentList.Arguments.FirstOrDefault();
-				if (typeArgNode != null)
-				{
-					var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
-					var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
-					genTypeArg = typeInfo.Type;
-
-					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
-					// Note: Nullable value types like `int?` do not have this issue.
-					if (genTypeArg != null &&
-						genTypeArg.IsReferenceType &&
-						typeArgNode is NullableTypeSyntax)
-					{
-						genTypeArg = genTypeArg.WithNullableAnnotation(NullableAnnotation.Annotated);
-					}
-				}
-			}
+			GeneratorOps.TryGetGenericTypeArgument(context, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg);
 
 			// We support 0, 1, or 2 arguments. Check for default value and/or flags arguments.
 			//	(A) Gen.Foo<T>()
@@ -216,21 +197,17 @@ using System.Windows;
 			if (generateThis.IsAttached)
 			{
 				string targetTypeName = "DependencyObject";
+
 				if (generateThis.MethodNameNode.Parent is MemberAccessExpressionSyntax memberAccessExpr &&
 					memberAccessExpr.Expression is GenericNameSyntax genClassNameNode)
 				{
 					genClassDecl = "GenAttached<__TTarget> where __TTarget : DependencyObject";
 
-					var typeArgNode = genClassNameNode.TypeArgumentList.Arguments.FirstOrDefault();
-					if (typeArgNode != null)
+					if (GeneratorOps.TryGetGenericTypeArgument(context, genClassNameNode, out ITypeSymbol? attachmentNarrowingType))
 					{
-						var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
-						generateThis.AttachmentNarrowingType = model.GetTypeInfo(typeArgNode, context.CancellationToken).Type;
-						if (generateThis.AttachmentNarrowingType != null)
-						{
-							targetTypeName = generateThis.AttachmentNarrowingType.ToDisplayString();
-							moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{GeneratorOps.ReplaceBrackets(targetTypeName)}""/>.";
-						}
+						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
+						targetTypeName = attachmentNarrowingType.ToDisplayString();
+						moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{GeneratorOps.ReplaceBrackets(targetTypeName)}""/>.";
 					}
 				}
 				else
@@ -255,17 +232,9 @@ using System.Windows;
 				genClassDecl = "Gen";
 
 				// Let's include the documentation because that's nice.
-				string? maybeDox = null;
-				if (GeneratorOps.TryGetAncestor(generateThis.MethodNameNode, out FieldDeclarationSyntax? fieldDeclNode))
+				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? maybeDox))
 				{
-					maybeDox = fieldDeclNode
-						.DescendantTrivia()
-						.FirstOrDefault(t => t.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia))
-						.ToFullString();
-					if (maybeDox.Length != 0)
-					{
-						maybeDox += "\t\t";
-					}
+					maybeDox += "\t\t";
 				}
 
 				// Write the instance property source code.
@@ -742,8 +711,8 @@ using System.Windows;
 
 			/// <summary>
 			/// Gets or sets the optional type used to restrict the target type of the attached property.
-			/// For instance, <code>System.Windows.Controls.Button</code> can be specified such that the attached property may
-			/// only be used on objects that derive from <code>Button</code>.
+			/// For instance, <c>System.Windows.Controls.Button</c> can be specified such that the attached property may
+			/// only be used on objects that derive from <c>Button</c>.
 			/// </summary>
 			public ITypeSymbol? AttachmentNarrowingType { get; set; }
 

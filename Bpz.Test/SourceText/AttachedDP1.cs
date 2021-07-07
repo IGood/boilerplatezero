@@ -7,6 +7,6 @@ namespace AttachedDP
 	{
 		public static readonly DependencyProperty FooProperty = GenAttached.Foo<string>();
 
-		public static readonly DependencyProperty BarProperty = GenAttached<Button>.Barz<string>();
+		public static readonly DependencyProperty BarProperty = GenAttached<Button>.Bar<string>();
 	}
 }
