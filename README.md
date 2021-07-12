@@ -161,7 +161,7 @@ namespace Goodies
   ```
   </details>
 - <details><summary>detects suitable property-changed handlers</summary>
-  There are 3 options for property-changed handlers.
+  There are 4 options for property-changed handlers.
 
   ```csharp
   // 👩‍💻 user
@@ -201,6 +201,13 @@ namespace Goodies
       // - return type is `void`
       // - type of parameter 0 is `DependencyPropertyChangedEventArgs`
   }
+
+  // Option 4 - routed event, named "SeasonChangedEvent"
+  public static readonly RoutedEvent SeasonChangedEvent = Gen.SeasonChanged<string>();
+      // Invoking this event can be used as the property-changed callback during registration!
+      // It is a candidate because...
+      // - it is a `static readonly RoutedEvent`
+      // - it's name is "SeasonChangedEvent"
   ```
   </details>
 - <details><summary>detects suitable value coercion handlers</summary>
