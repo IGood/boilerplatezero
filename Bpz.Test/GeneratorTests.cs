@@ -25,6 +25,7 @@ namespace Bpz.Test
 		[TestCase("PropertyChangedHandlers.cs")]
 		[TestCase("Coercion.cs")]
 		[TestCase("FxPropMetadata.cs")]
+		[TestCase("PropertyChangedEvents.cs")]
 		public void GenProps(string resourceName)
 		{
 			using var source = Resources.GetEmbeddedResource(resourceName);

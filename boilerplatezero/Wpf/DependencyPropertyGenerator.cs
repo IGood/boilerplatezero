@@ -31,10 +31,11 @@ namespace Bpz.Wpf
 		private bool useNullableContext;
 
 		// These will be initialized before first use.
-		private INamedTypeSymbol objTypeSymbol = null!;  // System.Object
-		private INamedTypeSymbol doTypeSymbol = null!;   // System.Windows.DependencyObject
-		private INamedTypeSymbol argsTypeSymbol = null!; // System.Windows.DependencyPropertyChangedEventArgs
-		private INamedTypeSymbol flagsTypeSymbol = null!;// System.Windows.FrameworkPropertyMetadataOptions
+		private INamedTypeSymbol objTypeSymbol = null!; // System.Object
+		private INamedTypeSymbol doTypeSymbol = null!;  // System.Windows.DependencyObject
+		private INamedTypeSymbol argsTypeSymbol = null!;// System.Windows.DependencyPropertyChangedEventArgs
+		private INamedTypeSymbol? flagsTypeSymbol;      // System.Windows.FrameworkPropertyMetadataOptions
+		private INamedTypeSymbol? reTypeSymbol;         // System.Windows.RoutedEvent
 
 		public void Initialize(GeneratorInitializationContext context)
 		{
@@ -63,7 +64,8 @@ namespace Bpz.Wpf
 				this.objTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Object")!;
 				this.doTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.DependencyObject")!;
 				this.argsTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyChangedEventArgs")!;
-				this.flagsTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.FrameworkPropertyMetadataOptions")!;
+				this.flagsTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.FrameworkPropertyMetadataOptions");
+				this.reTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.RoutedEvent");
 
 				string namespaceName = namespaceGroup.Key.ToString();
 				sourceBuilder.Append($@"
@@ -312,36 +314,88 @@ using System.Windows;
 			string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
 			string coerceMethodName = "Coerce" + propertyName;
 
-			AssociatedMethods foundMethods = AssociatedMethods.None;
-
+			AssociatedHandlers foundAssociates = AssociatedHandlers.None;
+			ChangeHandlerKind changeHandlerKind = ChangeHandlerKind.None;
 			string changeHandler = "null";
 			string coercionHandler = "null";
 
-			// Look for associated methods...
+			// Look for associated handlers...
 			foreach (ISymbol memberSymbol in ownerType.GetMembers())
 			{
-				if (memberSymbol.Kind == SymbolKind.Method)
+				string changeHandler2;
+
+				switch (memberSymbol.Kind)
 				{
-					if (!foundMethods.HasFlag(AssociatedMethods.PropertyChanged) && _TryGetChangeHandler((IMethodSymbol)memberSymbol, out changeHandler))
-					{
-						foundMethods |= AssociatedMethods.PropertyChanged;
-						if (foundMethods == AssociatedMethods.All)
+					case SymbolKind.Field:
+						// If we haven't found a routed event or better, then check this field.
+						if (changeHandlerKind < ChangeHandlerKind.RoutedEvent &&
+							_TryGetChangeHandler2((IFieldSymbol)memberSymbol, out changeHandler2))
 						{
+							changeHandlerKind = ChangeHandlerKind.RoutedEvent;
+							changeHandler = changeHandler2;
+						}
+						break;
+
+					case SymbolKind.Method:
+						// If we haven't found a static property-changed method, then check this method.
+						if (changeHandlerKind < ChangeHandlerKind.StaticMethod &&
+							_TryGetChangeHandler((IMethodSymbol)memberSymbol, out changeHandler2, out bool isStatic))
+						{
+							if (isStatic)
+							{
+								foundAssociates |= AssociatedHandlers.PropertyChanged;
+								changeHandlerKind = ChangeHandlerKind.StaticMethod;
+							}
+							else
+							{
+								changeHandlerKind = ChangeHandlerKind.InstanceMethod;
+							}
+
+							changeHandler = changeHandler2;
+
 							break;
 						}
 
+						// If we haven't found a coercion handler, then check this method.
+						if (!foundAssociates.HasFlag(AssociatedHandlers.Coerce) &&
+							_TryGetCoercionHandler((IMethodSymbol)memberSymbol, out coercionHandler))
+						{
+							foundAssociates |= AssociatedHandlers.Coerce;
+						}
+						break;
+
+					default:
 						continue;
-					}
-
-					if (!foundMethods.HasFlag(AssociatedMethods.Coerce) && _TryGetCoercionHandler((IMethodSymbol)memberSymbol, out coercionHandler))
-					{
-						foundMethods |= AssociatedMethods.Coerce;
-						if (foundMethods == AssociatedMethods.All)
-						{
-							break;
-						}
-					}
 				}
+
+				if (foundAssociates == AssociatedHandlers.All)
+				{
+					break;
+				}
+			}
+
+			// See if we have any routed events like...
+			//	RoutedEvent FooChangedEvent = Gen.FooChanged<int>();
+			bool _TryGetChangeHandler2(IFieldSymbol fieldSymbol, out string changeHandler)
+			{
+				string fieldName = fieldSymbol.Name;
+				if (fieldSymbol.IsStatic &&
+					fieldSymbol.IsReadOnly &&
+					fieldName == propertyName + "ChangedEvent" &&
+					fieldSymbol.Type.Equals(this.reTypeSymbol, SymbolEqualityComparer.Default))
+				{
+					string? maybeCastArgs = (generateThis.PropertyType?.SpecialType == SpecialType.System_Object)
+						? null
+						: $"({generateThis.PropertyTypeName})";
+
+					// Something like...
+					//	(d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<int>((int)e.OldValue, (int)e.NewValue, FooChangedEvent))
+					changeHandler = $"(d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<{generateThis.PropertyTypeName}>({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue, {fieldName}))";
+					return true;
+				}
+
+				changeHandler = "null";
+				return false;
 			}
 
 			// See if we have any property-changed handlers like...
@@ -349,13 +403,15 @@ using System.Windows;
 			//	static void OnFooChanged(Widget self, DependencyPropertyChangedEventArgs e) { ... }
 			//	void FooChanged(DependencyPropertyChangedEventArgs e) { ... }
 			//	void OnFooChanged(string oldFoo, string newFoo) { ... }
-			bool _TryGetChangeHandler(IMethodSymbol methodSymbol, out string changeHandler)
+			bool _TryGetChangeHandler(IMethodSymbol methodSymbol, out string changeHandler, out bool isStatic)
 			{
+				isStatic = methodSymbol.IsStatic;
+
 				if (methodSymbol.ReturnsVoid)
 				{
 					string methodName = methodSymbol.Name;
 
-					if (methodSymbol.IsStatic)
+					if (isStatic)
 					{
 						if (methodSymbol.Parameters.Length == 2 &&
 							methodName.EndsWith("Changed", StringComparison.Ordinal) &&
@@ -564,7 +620,6 @@ using System.Windows;
 		{
 			INamedTypeSymbol? dpTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.DependencyProperty");
 			INamedTypeSymbol? dpkTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyKey");
-
 			if (dpTypeSymbol == null || dpkTypeSymbol == null)
 			{
 				// This probably never happens, but whatevs.
@@ -634,13 +689,29 @@ using System.Windows;
 			return checkThis.Equals(baseTypeSymbol, SymbolEqualityComparer.Default) || (checkThis.BaseType != null && CanCastTo(checkThis.BaseType, baseTypeSymbol));
 		}
 
+		/// <summary>
+		/// Specifies potential handler behaviors that are associated with a dependency property.
+		/// </summary>
 		[Flags]
-		private enum AssociatedMethods
+		private enum AssociatedHandlers
 		{
 			None = 0,
 			PropertyChanged = 1 << 0,
 			Coerce = 1 << 1,
 			All = PropertyChanged | Coerce,
+		}
+
+		/// <summary>
+		/// Specifies the possible kinds of change-handlers.
+		/// Multiple candidates may be found when looking for associated handlers.
+		/// Higher values have higher priority.
+		/// </summary>
+		private enum ChangeHandlerKind
+		{
+			None,
+			RoutedEvent,
+			InstanceMethod,
+			StaticMethod,
 		}
 
 		private class SyntaxReceiver : ISyntaxReceiver
