@@ -162,6 +162,7 @@ namespace Goodies
   </details>
 - <details><summary>detects suitable property-changed handlers</summary>
   There are 4 options for property-changed handlers.
+  If multiple candidates are found, then they are prioritized (from highest to lowest) as shown below (static methods, instance methods, routed events).
 
   ```csharp
   // 👩‍💻 user

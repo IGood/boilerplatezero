@@ -322,24 +322,24 @@ using System.Windows;
 			// Look for associated handlers...
 			foreach (ISymbol memberSymbol in ownerType.GetMembers())
 			{
-				string changeHandler2;
+				string maybeChangeHandler;
 
 				switch (memberSymbol.Kind)
 				{
 					case SymbolKind.Field:
 						// If we haven't found a routed event or better, then check this field.
 						if (changeHandlerKind < ChangeHandlerKind.RoutedEvent &&
-							_TryGetChangeHandler2((IFieldSymbol)memberSymbol, out changeHandler2))
+							_TryGetChangeHandler2((IFieldSymbol)memberSymbol, out maybeChangeHandler))
 						{
 							changeHandlerKind = ChangeHandlerKind.RoutedEvent;
-							changeHandler = changeHandler2;
+							changeHandler = maybeChangeHandler;
 						}
 						break;
 
 					case SymbolKind.Method:
 						// If we haven't found a static property-changed method, then check this method.
 						if (changeHandlerKind < ChangeHandlerKind.StaticMethod &&
-							_TryGetChangeHandler((IMethodSymbol)memberSymbol, out changeHandler2, out bool isStatic))
+							_TryGetChangeHandler((IMethodSymbol)memberSymbol, out maybeChangeHandler, out bool isStatic))
 						{
 							if (isStatic)
 							{
@@ -351,7 +351,7 @@ using System.Windows;
 								changeHandlerKind = ChangeHandlerKind.InstanceMethod;
 							}
 
-							changeHandler = changeHandler2;
+							changeHandler = maybeChangeHandler;
 
 							break;
 						}
