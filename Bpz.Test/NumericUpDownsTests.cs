@@ -7,7 +7,7 @@ using System.Windows;
 namespace Bpz.Test
 {
 	/// <summary>
-	/// Exercises basic attached event behavior.
+	/// Checks behavior of generic base types and raising routed events from generated change-handlers.
 	/// </summary>
 	public class NumericUpDownsTests
 	{
@@ -31,7 +31,7 @@ namespace Bpz.Test
 
 		[Test]
 		[Apartment(ApartmentState.STA)]
-		public void ExpectEventHanlers()
+		public void ExpectEventHandlers()
 		{
 			var dud = new DoubleUpDown();
 
