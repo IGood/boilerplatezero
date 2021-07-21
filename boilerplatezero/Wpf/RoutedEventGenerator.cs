@@ -6,7 +6,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 
@@ -16,7 +15,7 @@ namespace Bpz.Wpf
 	/// Represents a source generator that produces idiomatic code for WPF routed events.
 	/// 
 	/// <para>Looks for things like<br/>
-	/// <c>public static readonly RoutedEvent FooChangedEvent = Gen.FooChanged<RoutedPropertyChangedEventHandler<int>>(RoutingStrategy.Direct);</c><br/>
+	/// <c>public static readonly RoutedEvent FooChangedEvent = Gen.FooChanged&lt;RoutedPropertyChangedEventHandler&lt;int&gt;&gt;(RoutingStrategy.Direct);</c><br/>
 	/// and generates the appropriate registration code.</para>
 	/// </summary>
 	[Generator]
@@ -68,7 +67,7 @@ namespace {namespaceName}
 				foreach (var classGroup in namespaceGroup)
 				{
 					string? maybeStatic = classGroup.Key.IsStatic ? "static " : null;
-					string className = GetTypeName((INamedTypeSymbol)classGroup.Key);
+					string className = GeneratorOps.GetTypeName((INamedTypeSymbol)classGroup.Key);
 					sourceBuilder.Append($@"
 	{maybeStatic}partial class {className}
 	{{");
@@ -116,37 +115,18 @@ using System.Windows;
 			string routedEventMemberName = generateThis.FieldSymbol.Name;
 
 			// Try to get the generic type argument (if it exists, this will be the type of the event handler).
-			ITypeSymbol? genTypeArg = null;
-			if (generateThis.MethodNameNode is GenericNameSyntax genMethodNameNode)
+			if (GeneratorOps.TryGetGenericTypeArgument(context, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg))
 			{
-				var typeArgNode = genMethodNameNode.TypeArgumentList.Arguments.FirstOrDefault();
-				if (typeArgNode != null)
+				// If the type is a multicast delegate, then use it;
+				// otherwise, use the type in a `RoutedPropertyChangedEventHandler<>`.
+				if (genTypeArg.BaseType?.Equals(this.mdTypeSymbol, SymbolEqualityComparer.Default) ?? false)
 				{
-					var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
-					var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
-					genTypeArg = typeInfo.Type;
-
-					if (genTypeArg != null)
-					{
-						// If the type is a multicast delegate, then use it;
-						// otherwise, use the type in a `RoutedPropertyChangedEventHandler<>`.
-						if (genTypeArg.BaseType?.Equals(this.mdTypeSymbol, SymbolEqualityComparer.Default) ?? false)
-						{
-							// Good to go!
-						}
-						else
-						{
-							// A nullable ref type like `string?` loses its annotation here. Let's put it back.
-							// Note: Nullable value types like `int?` do not have this issue.
-							if (genTypeArg.IsReferenceType && typeArgNode is NullableTypeSyntax)
-							{
-								genTypeArg = genTypeArg.WithNullableAnnotation(NullableAnnotation.Annotated);
-							}
-
-							// Example: Transform `double` into `RoutedPropertyChangedEventHandler<double>`.
-							genTypeArg = this.rpcehTypeSymbol.Construct(genTypeArg);
-						}
-					}
+					// Good to go!
+				}
+				else
+				{
+					// Example: Transform `double` into `RoutedPropertyChangedEventHandler<double>`.
+					genTypeArg = this.rpcehTypeSymbol.Construct(genTypeArg);
 				}
 			}
 
@@ -168,17 +148,12 @@ using System.Windows;
 				{
 					genClassDecl = "GenAttached<__TTarget> where __TTarget : DependencyObject";
 
-					var typeArgNode = genClassNameNode.TypeArgumentList.Arguments.FirstOrDefault();
-					if (typeArgNode != null)
+					if (GeneratorOps.TryGetGenericTypeArgument(context, genClassNameNode, out ITypeSymbol? attachmentNarrowingType))
 					{
-						var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
-						generateThis.AttachmentNarrowingType = model.GetTypeInfo(typeArgNode, context.CancellationToken).Type;
-						if (generateThis.AttachmentNarrowingType != null)
-						{
-							targetTypeName = generateThis.AttachmentNarrowingType.ToDisplayString();
-							callerExpression = "d";
-							moreDox = $@"<br/>This attached event is only for use with objects of type <see cref=""{ReplaceBrackets(targetTypeName)}""/>.";
-						}
+						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
+						targetTypeName = attachmentNarrowingType.ToDisplayString();
+						callerExpression = "d";
+						moreDox = $@"<br/>This attached event is only for use with objects of type <see cref=""{GeneratorOps.ReplaceBrackets(targetTypeName)}""/>.";
 					}
 				}
 				else
@@ -201,17 +176,9 @@ using System.Windows;
 				genClassDecl = "Gen";
 
 				// Let's include the documentation because that's nice.
-				string? maybeDox = null;
-				if (TryGetAncestor(generateThis.MethodNameNode, out FieldDeclarationSyntax? fieldDeclNode))
+				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? maybeDox))
 				{
-					maybeDox = fieldDeclNode
-						.DescendantTrivia()
-						.FirstOrDefault(t => t.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia))
-						.ToFullString();
-					if (maybeDox.Length != 0)
-					{
-						maybeDox += "\t\t";
-					}
+					maybeDox += "\t\t";
 				}
 
 				// Write the instance event source code.
@@ -234,13 +201,13 @@ using System.Windows;
 			// Write the static helper method.
 			string what = generateThis.IsAttached ? "an attached event" : "a routed event";
 			string? maybeGeneric = (genTypeArg != null) ? "<__T>" : null;
-			string ownerTypeName = GetTypeName(generateThis.FieldSymbol.ContainingType);
+			string ownerTypeName = GeneratorOps.GetTypeName(generateThis.FieldSymbol.ContainingType);
 
 			sourceBuilder.Append($@"
 		private static partial class {genClassDecl}
 		{{
 			/// <summary>
-			/// Registers {what} named ""{eventName}"" whose handler type is <see cref=""{ReplaceBrackets(generateThis.EventHandlerTypeName)}""/>.{moreDox}
+			/// Registers {what} named ""{eventName}"" whose handler type is <see cref=""{GeneratorOps.ReplaceBrackets(generateThis.EventHandlerTypeName)}""/>.{moreDox}
 			/// </summary>
 			public static RoutedEvent {eventName}{maybeGeneric}(RoutingStrategy routingStrategy = RoutingStrategy.Direct)
 			{{
@@ -290,66 +257,6 @@ using System.Windows;
 					}
 				}
 			}
-		}
-
-		/// <summary>
-		/// Traverses the syntax tree upward from <paramref name="syntaxNode"/> and returns the first node of type
-		/// <typeparamref name="T"/> if one exists.
-		/// </summary>
-		private static bool TryGetAncestor<T>(SyntaxNode syntaxNode, [NotNullWhen(true)] out T? ancestorSyntaxNode) where T : SyntaxNode
-		{
-			if (syntaxNode.Parent != null)
-			{
-				if (syntaxNode.Parent is T found)
-				{
-					ancestorSyntaxNode = found;
-					return true;
-				}
-
-				return TryGetAncestor(syntaxNode.Parent, out ancestorSyntaxNode);
-			}
-
-			ancestorSyntaxNode = null;
-			return false;
-		}
-
-		/// <summary>
-		/// Gets the name of the type including generic type parameters (ex: "Widget&lt;TSomething&gt;").
-		/// </summary>
-		private static string GetTypeName(INamedTypeSymbol typeSymbol)
-		{
-			if (typeSymbol.IsGenericType)
-			{
-				string name = typeSymbol.ToDisplayString();
-				int indexOfAngle = name.IndexOf('<');
-				int indexOfDot = name.LastIndexOf('.', indexOfAngle);
-				return name.Substring(indexOfDot + 1);
-			}
-
-			return typeSymbol.Name;
-		}
-
-		/// <summary>
-		/// Replaces angle brackets ("&lt;&gt;") with curly braces ("{}").
-		/// </summary>
-		private static string ReplaceBrackets(string typeName)
-		{
-			int indexOfBracket = typeName.IndexOf('<');
-			if (indexOfBracket < 0)
-			{
-				return typeName;
-			}
-
-			char[] chars = typeName.ToCharArray();
-
-			for (int i = indexOfBracket; i < chars.Length; ++i)
-			{
-				ref char c = ref chars[i];
-				if (c == '<') c = '{';
-				else if (c == '>') c = '}';
-			}
-
-			return new string(chars);
 		}
 
 		private class SyntaxReceiver : ISyntaxReceiver
@@ -416,8 +323,8 @@ using System.Windows;
 			public bool IsAttached { get; }
 
 			/// <summary>
-			/// Gets or sets the optional type used to restrict the target type of the attached property.
-			/// For instance, <c>System.Windows.Controls.Button</c> can be specified such that the attached property may
+			/// Gets or sets the optional type used to restrict the target type of the attached event.
+			/// For instance, <c>System.Windows.Controls.Button</c> can be specified such that the attached event may
 			/// only be used on objects that derive from <c>Button</c>.
 			/// </summary>
 			public ITypeSymbol? AttachmentNarrowingType { get; set; }

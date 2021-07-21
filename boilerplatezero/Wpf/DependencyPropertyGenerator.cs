@@ -6,7 +6,6 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 
@@ -74,7 +73,7 @@ namespace {namespaceName}
 				foreach (var classGroup in namespaceGroup)
 				{
 					string? maybeStatic = classGroup.Key.IsStatic ? "static " : null;
-					string className = GetTypeName((INamedTypeSymbol)classGroup.Key);
+					string className = GeneratorOps.GetTypeName((INamedTypeSymbol)classGroup.Key);
 					sourceBuilder.Append($@"
 	{maybeStatic}partial class {className}
 	{{");
@@ -147,26 +146,7 @@ using System.Windows;
 			}
 
 			// Try to get the generic type argument (if it exists, this will be the type of the property).
-			ITypeSymbol? genTypeArg = null;
-			if (generateThis.MethodNameNode is GenericNameSyntax genMethodNameNode)
-			{
-				var typeArgNode = genMethodNameNode.TypeArgumentList.Arguments.FirstOrDefault();
-				if (typeArgNode != null)
-				{
-					var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
-					var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
-					genTypeArg = typeInfo.Type;
-
-					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
-					// Note: Nullable value types like `int?` do not have this issue.
-					if (genTypeArg != null &&
-						genTypeArg.IsReferenceType &&
-						typeArgNode is NullableTypeSyntax)
-					{
-						genTypeArg = genTypeArg.WithNullableAnnotation(NullableAnnotation.Annotated);
-					}
-				}
-			}
+			GeneratorOps.TryGetGenericTypeArgument(context, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg);
 
 			// We support 0, 1, or 2 arguments. Check for default value and/or flags arguments.
 			//	(A) Gen.Foo<T>()
@@ -179,7 +159,7 @@ using System.Windows;
 			ArgumentSyntax? defaultValueArgNode = null;
 			ITypeSymbol? typeOfFirstArg = null;
 			bool hasFlags = false;
-			if (TryGetAncestor(generateThis.MethodNameNode, out InvocationExpressionSyntax? invocationExpressionNode))
+			if (GeneratorOps.TryGetAncestor(generateThis.MethodNameNode, out InvocationExpressionSyntax? invocationExpressionNode))
 			{
 				var args = invocationExpressionNode.ArgumentList.Arguments;
 				if (args.Count > 0)
@@ -217,21 +197,17 @@ using System.Windows;
 			if (generateThis.IsAttached)
 			{
 				string targetTypeName = "DependencyObject";
+
 				if (generateThis.MethodNameNode.Parent is MemberAccessExpressionSyntax memberAccessExpr &&
 					memberAccessExpr.Expression is GenericNameSyntax genClassNameNode)
 				{
 					genClassDecl = "GenAttached<__TTarget> where __TTarget : DependencyObject";
 
-					var typeArgNode = genClassNameNode.TypeArgumentList.Arguments.FirstOrDefault();
-					if (typeArgNode != null)
+					if (GeneratorOps.TryGetGenericTypeArgument(context, genClassNameNode, out ITypeSymbol? attachmentNarrowingType))
 					{
-						var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
-						generateThis.AttachmentNarrowingType = model.GetTypeInfo(typeArgNode, context.CancellationToken).Type;
-						if (generateThis.AttachmentNarrowingType != null)
-						{
-							targetTypeName = generateThis.AttachmentNarrowingType.ToDisplayString();
-							moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{ReplaceBrackets(targetTypeName)}""/>.";
-						}
+						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
+						targetTypeName = attachmentNarrowingType.ToDisplayString();
+						moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{GeneratorOps.ReplaceBrackets(targetTypeName)}""/>.";
 					}
 				}
 				else
@@ -256,17 +232,9 @@ using System.Windows;
 				genClassDecl = "Gen";
 
 				// Let's include the documentation because that's nice.
-				string? maybeDox = null;
-				if (TryGetAncestor(generateThis.MethodNameNode, out FieldDeclarationSyntax? fieldDeclNode))
+				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? maybeDox))
 				{
-					maybeDox = fieldDeclNode
-						.DescendantTrivia()
-						.FirstOrDefault(t => t.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia))
-						.ToFullString();
-					if (maybeDox.Length != 0)
-					{
-						maybeDox += "\t\t";
-					}
+					maybeDox += "\t\t";
 				}
 
 				// Write the instance property source code.
@@ -315,13 +283,13 @@ using System.Windows;
 
 			string a = generateThis.IsAttached ? "Attached" : "";
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
-			string ownerTypeName = GetTypeName(generateThis.FieldSymbol.ContainingType);
+			string ownerTypeName = GeneratorOps.GetTypeName(generateThis.FieldSymbol.ContainingType);
 
 			sourceBuilder.Append($@"
 		private static partial class {genClassDecl}
 		{{
 			/// <summary>
-			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{ReplaceBrackets(generateThis.PropertyTypeName)}""/>.{moreDox}
+			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{GeneratorOps.ReplaceBrackets(generateThis.PropertyTypeName)}""/>.{moreDox}
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{
@@ -635,27 +603,6 @@ using System.Windows;
 		}
 
 		/// <summary>
-		/// Traverses the syntax tree upward from <paramref name="syntaxNode"/> and returns the first node of type
-		/// <typeparamref name="T"/> if one exists.
-		/// </summary>
-		private static bool TryGetAncestor<T>(SyntaxNode syntaxNode, [NotNullWhen(true)] out T? ancestorSyntaxNode) where T : SyntaxNode
-		{
-			if (syntaxNode.Parent != null)
-			{
-				if (syntaxNode.Parent is T found)
-				{
-					ancestorSyntaxNode = found;
-					return true;
-				}
-
-				return TryGetAncestor(syntaxNode.Parent, out ancestorSyntaxNode);
-			}
-
-			ancestorSyntaxNode = null;
-			return false;
-		}
-
-		/// <summary>
 		/// Attempts to gets the type of an argument node.
 		/// </summary>
 		private static ITypeSymbol? GetArgumentType(GeneratorExecutionContext context, ArgumentSyntax argumentNode)
@@ -679,51 +626,12 @@ using System.Windows;
 		}
 
 		/// <summary>
-		/// Gets the name of the type including generic type parameters (ex: "Widget&lt;TSomething&gt;").
-		/// </summary>
-		private static string GetTypeName(INamedTypeSymbol typeSymbol)
-		{
-			if (typeSymbol.IsGenericType)
-			{
-				string name = typeSymbol.ToDisplayString();
-				int indexOfAngle = name.IndexOf('<');
-				int indexOfDot = name.LastIndexOf('.', indexOfAngle);
-				return name.Substring(indexOfDot + 1);
-			}
-
-			return typeSymbol.Name;
-		}
-
-		/// <summary>
 		/// Returns <c>true</c> if <paramref name="checkThis"/> can be cast to <paramref name="baseTypeSymbol"/>;
 		/// otherwise, returns <c>false</c>.
 		/// </summary>
 		private static bool CanCastTo(ITypeSymbol checkThis, ITypeSymbol baseTypeSymbol)
 		{
 			return checkThis.Equals(baseTypeSymbol, SymbolEqualityComparer.Default) || (checkThis.BaseType != null && CanCastTo(checkThis.BaseType, baseTypeSymbol));
-		}
-
-		/// <summary>
-		/// Replaces angle brackets ("&lt;&gt;") with curly braces ("{}").
-		/// </summary>
-		private static string ReplaceBrackets(string typeName)
-		{
-			int indexOfBracket = typeName.IndexOf('<');
-			if (indexOfBracket < 0)
-			{
-				return typeName;
-			}
-
-			char[] chars = typeName.ToCharArray();
-
-			for (int i = indexOfBracket; i < chars.Length; ++i)
-			{
-				ref char c = ref chars[i];
-				if (c == '<') c = '{';
-				else if (c == '>') c = '}';
-			}
-
-			return new string(chars);
 		}
 
 		[Flags]
