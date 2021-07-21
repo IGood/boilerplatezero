@@ -12,7 +12,6 @@ namespace Bpz.Test
 	/// Exercises basic attached property behavior.
 	/// This won't compile if the properties we expect weren't generated.
 	/// </summary>
-	[Apartment(ApartmentState.STA)]
 	public class GridSnapTests
 	{
 		[TestCaseSource(nameof(MetadataTestCases))]
@@ -49,6 +48,7 @@ namespace Bpz.Test
 		}
 
 		[Test(Description = "Change-handers should raise events.")]
+		[Apartment(ApartmentState.STA)]
 		public void ExpectEventHandlers()
 		{
 			var c = new Canvas();
