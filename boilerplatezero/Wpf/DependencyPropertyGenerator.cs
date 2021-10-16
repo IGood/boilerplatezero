@@ -209,7 +209,7 @@ using System.Windows;
 					{
 						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
 						targetTypeName = attachmentNarrowingType.ToDisplayString();
-						moreDox = $@"<br/>This attached property is only for use with objects of type <see cref=""{GeneratorOps.ReplaceBrackets(targetTypeName)}""/>.";
+						moreDox = $@"<br/>This attached property is only for use with objects of type <typeparamref name=""__TTarget""/>.";
 					}
 				}
 				else
@@ -291,7 +291,7 @@ using System.Windows;
 		private static partial class {genClassDecl}
 		{{
 			/// <summary>
-			/// Registers {what} named ""{propertyName}"" whose type is <see cref=""{GeneratorOps.ReplaceBrackets(generateThis.PropertyTypeName)}""/>.{moreDox}
+			/// Registers {what} named ""{propertyName}"" whose type is <typeparamref name=""__T""/>.{moreDox}
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{

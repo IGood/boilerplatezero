@@ -114,6 +114,8 @@ using System.Windows;
 			string eventName = generateThis.MethodNameNode.Identifier.ValueText;
 			string routedEventMemberName = generateThis.FieldSymbol.Name;
 
+			string eventHandlerTypeDoxString = $@"<see cref=""{this.rehTypeSymbol.ToDisplayString()}""/>";
+
 			// Try to get the generic type argument (if it exists, this will be the type of the event handler).
 			if (GeneratorOps.TryGetGenericTypeArgument(context, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg))
 			{
@@ -121,12 +123,18 @@ using System.Windows;
 				// otherwise, use the type in a `RoutedPropertyChangedEventHandler<>`.
 				if (genTypeArg.BaseType?.Equals(this.mdTypeSymbol, SymbolEqualityComparer.Default) ?? false)
 				{
-					// Good to go!
+					// Good to go! Documentation can reference the generic type parameter.
+					eventHandlerTypeDoxString = @"<typeparamref name=""__T""/>";
 				}
 				else
 				{
 					// Example: Transform `double` into `RoutedPropertyChangedEventHandler<double>`.
 					genTypeArg = this.rpcehTypeSymbol.Construct(genTypeArg);
+
+					// Documentation will appear as something like...
+					//	RoutedPropertyChangedEventHandler<T> of double
+					string rpcehT = GeneratorOps.ReplaceBrackets(this.rpcehTypeSymbol.ToDisplayString());
+					eventHandlerTypeDoxString = $@"<see cref=""{rpcehT}""/> of <typeparamref name=""__T""/>";
 				}
 			}
 
@@ -153,7 +161,7 @@ using System.Windows;
 						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
 						targetTypeName = attachmentNarrowingType.ToDisplayString();
 						callerExpression = "d";
-						moreDox = $@"<br/>This attached event is only for use with objects of type <see cref=""{GeneratorOps.ReplaceBrackets(targetTypeName)}""/>.";
+						moreDox = $@"<br/>This attached event is only for use with objects of type <typeparamref name=""__TTarget""/>.";
 					}
 				}
 				else
@@ -207,7 +215,7 @@ using System.Windows;
 		private static partial class {genClassDecl}
 		{{
 			/// <summary>
-			/// Registers {what} named ""{eventName}"" whose handler type is <see cref=""{GeneratorOps.ReplaceBrackets(generateThis.EventHandlerTypeName)}""/>.{moreDox}
+			/// Registers {what} named ""{eventName}"" whose handler type is {eventHandlerTypeDoxString}.{moreDox}
 			/// </summary>
 			public static RoutedEvent {eventName}{maybeGeneric}(RoutingStrategy routingStrategy = RoutingStrategy.Direct)
 			{{

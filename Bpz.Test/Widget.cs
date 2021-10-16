@@ -1,6 +1,7 @@
 // Copyright © Ian Good
 
 using System;
+using System.Collections.Generic;
 using System.Windows;
 
 namespace Bpz.Test
@@ -18,6 +19,8 @@ namespace Bpz.Test
 		public static readonly DependencyProperty MyString1Property = Gen.MyString1<string?>();
 		public static readonly DependencyProperty MyString2Property = Gen.MyString2(default(string?));
 		public static readonly DependencyProperty MyString3Property = Gen.MyString3("qwer");
+
+		public static readonly DependencyProperty MyDictionaryProperty = Gen.MyDictionary<Dictionary<int, List<string>>?>();
 
 		private static void MyString0PropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
 		{
