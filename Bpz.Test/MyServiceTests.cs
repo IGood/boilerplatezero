@@ -42,7 +42,30 @@ namespace Bpz.Test
 				{
 					OwnerType = typeof(MyService),
 					Name = "BarChanged",
-					HandlerType = typeof(RoutedPropertyChangedEventHandler<int>),
+					HandlerType = typeof(RoutedPropertyChangedEventHandler<List<float>>),
+					IsAttached = true,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(MyService),
+					Name = "Inspected",
+					AttachmentNarrowingType = typeof(System.Windows.Controls.Canvas),
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(MyService),
+					Name = "SomeToolTip",
+					HandlerType = typeof(System.Windows.Controls.ToolTipEventHandler),
+					IsAttached = true,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(MyService),
+					Name = "DataTransfer",
+					HandlerType = typeof(System.EventHandler<System.Windows.Data.DataTransferEventArgs>),
 					IsAttached = true,
 				};
 

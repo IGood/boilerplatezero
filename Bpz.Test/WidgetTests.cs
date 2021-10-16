@@ -80,6 +80,14 @@ namespace Bpz.Test
 				yield return new()
 				{
 					OwnerType = typeof(Widget),
+					Name = "MyDictionary",
+					PropertyType = typeof(Dictionary<int, List<string>>),
+					DefaultValue = null,
+				};
+
+				yield return new()
+				{
+					OwnerType = typeof(Widget),
 					Name = "MyFloat0",
 					PropertyType = typeof(float),
 					DefaultValue = 3.14f,
