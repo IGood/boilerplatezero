@@ -27,6 +27,7 @@ Included generators:
     <RepositoryType>git</RepositoryType>
     <PackageTags>bpz,source generator,wpf,dependency properties,routed events</PackageTags>
     <PackageIcon>bpz logo dark.png</PackageIcon>
+    <PackageReadmeFile>nuget readme.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,5 +47,6 @@ Included generators:
     <!-- Package the generator in the analyzer directory of the nuget package -->
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="..\product\bpz logo dark.png" Pack="true" PackagePath="" Visible="false" />
+    <None Include="..\product\nuget readme.md" Pack="true" PackagePath="" Visible="false" />
   </ItemGroup>
 </Project>
