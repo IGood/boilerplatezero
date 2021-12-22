@@ -22,7 +22,7 @@ namespace Bpz.Wpf
 	/// <c>private static void FooPropertyChanged(MyClass self, DependencyPropertyChangedEventArgs e) { ... }</c><br/>
 	/// will be included in the registration.
 	/// </summary>
-	[Generator]
+	[Generator(LanguageNames.CSharp)]
 	public class DependencyPropertyGenerator : ISourceGenerator
 	{
 		/// <summary>
@@ -148,7 +148,7 @@ using System.Windows;
 			}
 
 			// Try to get the generic type argument (if it exists, this will be the type of the property).
-			GeneratorOps.TryGetGenericTypeArgument(context, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg);
+			GeneratorOps.TryGetGenericTypeArgument(context.Compilation, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg, context.CancellationToken);
 
 			// We support 0, 1, or 2 arguments. Check for default value and/or flags arguments.
 			//	(A) Gen.Foo<T>()
@@ -205,7 +205,7 @@ using System.Windows;
 				{
 					genClassDecl = "GenAttached<__TTarget> where __TTarget : DependencyObject";
 
-					if (GeneratorOps.TryGetGenericTypeArgument(context, genClassNameNode, out ITypeSymbol? attachmentNarrowingType))
+					if (GeneratorOps.TryGetGenericTypeArgument(context.Compilation, genClassNameNode, out ITypeSymbol? attachmentNarrowingType, context.CancellationToken))
 					{
 						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
 						targetTypeName = attachmentNarrowingType.ToDisplayString();

@@ -1,6 +1,7 @@
 // Copyright © Ian Good
 
 using Bpz.Wpf;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using NUnit.Framework;
 using System;
@@ -42,7 +43,7 @@ namespace Bpz.Test
 		{
 			using var source = Resources.GetEmbeddedResource(resourceName);
 			var sourceText = SourceText.From(source);
-			GeneratorHost.RunGenerator(sourceText, new RoutedEventGenerator());
+			GeneratorHost.RunGenerator(sourceText, new RoutedEventGenerator().AsSourceGenerator());
 		}
 	}
 

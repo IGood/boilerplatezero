@@ -6,8 +6,10 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace Bpz.Wpf
 {
@@ -18,35 +20,51 @@ namespace Bpz.Wpf
 	/// <c>public static readonly RoutedEvent FooChangedEvent = Gen.FooChanged&lt;RoutedPropertyChangedEventHandler&lt;int&gt;&gt;(RoutingStrategy.Direct);</c><br/>
 	/// and generates the appropriate registration code.</para>
 	/// </summary>
-	[Generator]
-	public class RoutedEventGenerator : ISourceGenerator
+	[Generator(LanguageNames.CSharp)]
+	public class RoutedEventGenerator : IIncrementalGenerator
 	{
-		/// <summary>
-		/// Whether the generated code should be null-aware (i.e. the nullable annotation context is enabled).
-		/// </summary>
-		private bool useNullableContext;
-
 		// These will be initialized before first use.
 		private INamedTypeSymbol rehTypeSymbol = null!;  // System.Windows.RoutedEventHandler
 		private INamedTypeSymbol rpcehTypeSymbol = null!;// System.Windows.RoutedPropertyChangedEventHandler<>
 		private INamedTypeSymbol mdTypeSymbol = null!;   // System.MulticastDelegate
 
-		public void Initialize(GeneratorInitializationContext context)
+		public void Initialize(IncrementalGeneratorInitializationContext context)
 		{
 			//DebugMe.Go();
-			context.RegisterForSyntaxNotifications(() => new SyntaxReceiver());
+
+			// Whether the generated code should be null-aware (i.e. the nullable annotation context is enabled).
+			var enableNullable = context
+				.ParseOptionsProvider
+				.Select(static (po, _) => (po as CSharpParseOptions)?.LanguageVersion >= LanguageVersion.CSharp8);
+
+			var generationRequests = context
+				.SyntaxProvider
+				.CreateSyntaxProvider(IsSyntaxTargetForGeneration, CreateGenerationDetails);
+
+			var source = enableNullable
+				.Combine(context.CompilationProvider)
+				.Combine(generationRequests.Collect());
+
+			context.RegisterSourceOutput(
+				source,
+				(spc, x) => Execute(
+					useNullableContext: x.Left.Left,
+					compilation: x.Left.Right,
+					generationRequests: x.Right,
+					context: spc));
 		}
 
-		public void Execute(GeneratorExecutionContext context)
+		private void Execute(bool useNullableContext, Compilation compilation, ImmutableArray<GenerationDetails> generationRequests, SourceProductionContext context)
 		{
 			//DebugMe.Go();
 
-			this.useNullableContext = (context.ParseOptions as CSharpParseOptions)?.LanguageVersion >= LanguageVersion.CSharp8;
-
-			var syntaxReceiver = (SyntaxReceiver)context.SyntaxReceiver!;
+			// Get these type symbols now so we don't waste time finding them each time we need them later.
+			this.rehTypeSymbol ??= compilation.GetTypeByMetadataName("System.Windows.RoutedEventHandler")!;
+			this.rpcehTypeSymbol ??= compilation.GetTypeByMetadataName("System.Windows.RoutedPropertyChangedEventHandler`1")!;
+			this.mdTypeSymbol ??= compilation.GetTypeByMetadataName("System.MulticastDelegate")!;
 
 			// Cast keys to `ISymbol` in the key selector to make the analyzer shutup about CS8602 ("Dereference of a possibly null reference.").
-			var namespaces = UpdateAndFilterGenerationRequests(context, syntaxReceiver.GenerationRequests)
+			var namespaces = UpdateAndFilterGenerationRequests(context, compilation, generationRequests)
 			   .GroupBy(g => (ISymbol)g.FieldSymbol.ContainingType, SymbolEqualityComparer.Default)
 			   .GroupBy(g => (ISymbol)g.Key.ContainingNamespace, SymbolEqualityComparer.Default);
 
@@ -54,11 +72,6 @@ namespace Bpz.Wpf
 
 			foreach (var namespaceGroup in namespaces)
 			{
-				// Get these type symbols now so we don't waste time finding them each time we need them later.
-				this.rehTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.RoutedEventHandler")!;
-				this.rpcehTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.RoutedPropertyChangedEventHandler`1")!;
-				this.mdTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.MulticastDelegate")!;
-
 				string namespaceName = namespaceGroup.Key.ToString();
 				sourceBuilder.Append($@"
 namespace {namespaceName}
@@ -76,7 +89,7 @@ namespace {namespaceName}
 					{
 						context.CancellationToken.ThrowIfCancellationRequested();
 
-						this.ApppendSource(context, sourceBuilder, generateThis);
+						this.ApppendSource(compilation, sourceBuilder, generateThis, context.CancellationToken);
 					}
 
 					sourceBuilder.Append(@"
@@ -91,7 +104,7 @@ namespace {namespaceName}
 
 			if (sourceBuilder.Length != 0)
 			{
-				string? maybeNullableContext = this.useNullableContext ? "#nullable enable" : null;
+				string? maybeNullableContext = useNullableContext ? "#nullable enable" : null;
 
 				sourceBuilder.Insert(0,
 $@"//------------------------------------------------------------------------------
@@ -109,7 +122,7 @@ using System.Windows;
 			}
 		}
 
-		private void ApppendSource(GeneratorExecutionContext context, StringBuilder sourceBuilder, GenerationDetails generateThis)
+		private void ApppendSource(Compilation compilation, StringBuilder sourceBuilder, GenerationDetails generateThis, CancellationToken cancellationToken)
 		{
 			string eventName = generateThis.MethodNameNode.Identifier.ValueText;
 			string routedEventMemberName = generateThis.FieldSymbol.Name;
@@ -117,7 +130,7 @@ using System.Windows;
 			string eventHandlerTypeDoxString = $@"<see cref=""{this.rehTypeSymbol.ToDisplayString()}""/>";
 
 			// Try to get the generic type argument (if it exists, this will be the type of the event handler).
-			if (GeneratorOps.TryGetGenericTypeArgument(context, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg))
+			if (GeneratorOps.TryGetGenericTypeArgument(compilation, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg, cancellationToken))
 			{
 				// If the type is a multicast delegate, then use it;
 				// otherwise, use the type in a `RoutedPropertyChangedEventHandler<>`.
@@ -156,7 +169,7 @@ using System.Windows;
 				{
 					genClassDecl = "GenAttached<__TTarget> where __TTarget : DependencyObject";
 
-					if (GeneratorOps.TryGetGenericTypeArgument(context, genClassNameNode, out ITypeSymbol? attachmentNarrowingType))
+					if (GeneratorOps.TryGetGenericTypeArgument(compilation, genClassNameNode, out ITypeSymbol? attachmentNarrowingType, cancellationToken))
 					{
 						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
 						targetTypeName = attachmentNarrowingType.ToDisplayString();
@@ -229,9 +242,9 @@ using System.Windows;
 		/// Inspects candidates for correctness and updates them with additional information.
 		/// Yields those which satisfy requirements for code generation.
 		/// </summary>
-		private static IEnumerable<GenerationDetails> UpdateAndFilterGenerationRequests(GeneratorExecutionContext context, IEnumerable<GenerationDetails> requests)
+		private static IEnumerable<GenerationDetails> UpdateAndFilterGenerationRequests(SourceProductionContext context, Compilation compilation, IEnumerable<GenerationDetails> requests)
 		{
-			INamedTypeSymbol? reTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.RoutedEvent");
+			INamedTypeSymbol? reTypeSymbol = compilation.GetTypeByMetadataName("System.Windows.RoutedEvent");
 			if (reTypeSymbol == null)
 			{
 				// This probably never happens, but whatevs.
@@ -240,7 +253,7 @@ using System.Windows;
 
 			foreach (var gd in requests)
 			{
-				var model = context.Compilation.GetSemanticModel(gd.MethodNameNode.SyntaxTree);
+				var model = compilation.GetSemanticModel(gd.MethodNameNode.SyntaxTree);
 				if (model.GetEnclosingSymbol(gd.MethodNameNode.SpanStart, context.CancellationToken) is IFieldSymbol fieldSymbol &&
 					fieldSymbol.IsStatic &&
 					fieldSymbol.IsReadOnly)
@@ -267,47 +280,50 @@ using System.Windows;
 			}
 		}
 
-		private class SyntaxReceiver : ISyntaxReceiver
+		private static bool IsSyntaxTargetForGeneration(SyntaxNode syntaxNode, CancellationToken _)
 		{
-			public List<GenerationDetails> GenerationRequests { get; } = new();
-
-			public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
+			// Looking for things like...
+			//	public static readonly System.Windows.RoutedEvent FooChangedEvent = Gen.FooChanged<RoutedPropertyChangedEventHandler<int>>(RoutingStrategy.Direct);
+			//	public static readonly System.Windows.RoutedEvent FooChangedEvent = Gen.FooChanged<int>(RoutingStrategy.Direct);
+			//	public static readonly System.Windows.RoutedEvent BarUpdatedEvent = GenAttached.BarUpdated<RoutedEventHandler>(RoutingStrategy.Bubble);
+			//	public static readonly System.Windows.RoutedEvent BarUpdatedEvent = GenAttached.BarUpdated(RoutingStrategy.Bubble);
+			if (syntaxNode is FieldDeclarationSyntax fieldDecl)
 			{
-				// Looking for things like...
-				//	public static readonly System.Windows.RoutedEvent FooChangedEvent = Gen.FooChanged<RoutedPropertyChangedEventHandler<int>>(RoutingStrategy.Direct);
-				//	public static readonly System.Windows.RoutedEvent FooChangedEvent = Gen.FooChanged<int>(RoutingStrategy.Direct);
-				//	public static readonly System.Windows.RoutedEvent BarUpdatedEvent = GenAttached.BarUpdated<RoutedEventHandler>(RoutingStrategy.Bubble);
-				//	public static readonly System.Windows.RoutedEvent BarUpdatedEvent = GenAttached.BarUpdated(RoutingStrategy.Bubble);
-				if (syntaxNode is FieldDeclarationSyntax fieldDecl)
+				// Looking for "RoutedEvent" as the type of the field...
+				string fieldTypeName = fieldDecl.Declaration.Type.ToString();
+				if (fieldTypeName.EndsWith("RoutedEvent", StringComparison.Ordinal))
 				{
-					// Looking for "RoutedEvent" as the type of the field...
-					string fieldTypeName = fieldDecl.Declaration.Type.ToString();
-					if (fieldTypeName.EndsWith("RoutedEvent", StringComparison.Ordinal))
+					// Looking for field initialization like "= Gen.FooChanged"...
+					var varDecl = fieldDecl.Declaration.Variables.FirstOrDefault();
+					if (varDecl?.Initializer?.Value is InvocationExpressionSyntax invocationExpr &&
+						invocationExpr.Expression is MemberAccessExpressionSyntax memberAccessExpr &&
+						memberAccessExpr.Expression is SimpleNameSyntax idName)
 					{
-						// Looking for field initialization like "= Gen.FooChanged"...
-						var varDecl = fieldDecl.Declaration.Variables.FirstOrDefault();
-						if (varDecl?.Initializer?.Value is InvocationExpressionSyntax invocationExpr &&
-							invocationExpr.Expression is MemberAccessExpressionSyntax memberAccessExpr &&
-							memberAccessExpr.Expression is SimpleNameSyntax idName)
-						{
-							if (idName.Identifier.ValueText == "Gen")
-							{
-								this.GenerationRequests.Add(new(memberAccessExpr.Name, false));
-							}
-							else if (idName.Identifier.ValueText == "GenAttached")
-							{
-								this.GenerationRequests.Add(new(memberAccessExpr.Name, true));
-							}
-						}
+						return idName.Identifier.ValueText == "Gen" || idName.Identifier.ValueText == "GenAttached";
 					}
 				}
 			}
+
+			return false;
+		}
+
+
+		private static GenerationDetails CreateGenerationDetails(GeneratorSyntaxContext context, CancellationToken _)
+		{
+			var fieldDecl = (FieldDeclarationSyntax)context.Node;
+
+			// Looking for field initialization like "= Gen.FooChanged"...
+			var varDecl = fieldDecl.Declaration.Variables[0];
+			var invocationExpr = (InvocationExpressionSyntax)varDecl.Initializer!.Value;
+			var memberAccessExpr = (MemberAccessExpressionSyntax)invocationExpr.Expression;
+			var idName = (SimpleNameSyntax)memberAccessExpr.Expression;
+			return new(memberAccessExpr.Name, isAttached: idName.Identifier.ValueText == "GenAttached");
 		}
 
 		/// <summary>
 		/// Represents a candidate routed event for which source may be generated.
 		/// </summary>
-		private class GenerationDetails
+		private class GenerationDetails : IEquatable<GenerationDetails>
 		{
 			public GenerationDetails(SimpleNameSyntax methodNameNode, bool isAttached)
 			{
@@ -346,6 +362,9 @@ using System.Windows;
 			/// Gets or sets the name of the type of the routed event handler.
 			/// </summary>
 			public string EventHandlerTypeName { get; set; } = "RoutedEventHandler";
+
+			/// <inheritdoc/>
+			public bool Equals(GenerationDetails other) => this.IsAttached == other.IsAttached && this.MethodNameNode.IsEquivalentTo(other.MethodNameNode);
 		}
 	}
 }

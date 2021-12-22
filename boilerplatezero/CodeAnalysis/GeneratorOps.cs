@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading;
 
 namespace Bpz.CodeAnalysis
 {
@@ -14,15 +15,15 @@ namespace Bpz.CodeAnalysis
 		/// Attempts to get the generic type argument of a node.<br/>
 		/// Example: <c>Foo&lt;string?&gt;</c> returns <c>true</c> with <c>string?</c>.
 		/// </summary>
-		public static bool TryGetGenericTypeArgument(GeneratorExecutionContext context, SyntaxNode node, [NotNullWhen(true)] out ITypeSymbol? typeArgument)
+		public static bool TryGetGenericTypeArgument(Compilation compilation, SyntaxNode node, [NotNullWhen(true)] out ITypeSymbol? typeArgument, CancellationToken cancellationToken)
 		{
 			if (node is GenericNameSyntax genNameNode)
 			{
 				var typeArgNode = genNameNode.TypeArgumentList.Arguments.FirstOrDefault();
 				if (typeArgNode != null)
 				{
-					var model = context.Compilation.GetSemanticModel(typeArgNode.SyntaxTree);
-					var typeInfo = model.GetTypeInfo(typeArgNode, context.CancellationToken);
+					var model = compilation.GetSemanticModel(typeArgNode.SyntaxTree);
+					var typeInfo = model.GetTypeInfo(typeArgNode, cancellationToken);
 					typeArgument = typeInfo.Type;
 
 					// A nullable ref type like `string?` loses its annotation here. Let's put it back.
@@ -90,7 +91,9 @@ namespace Bpz.CodeAnalysis
 		public static string GetTypeName(INamedTypeSymbol typeSymbol)
 		{
 			// If the type isn't generic, then we can take a fast path.
-			return typeSymbol.IsGenericType ? typeSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) : typeSymbol.Name;
+			return typeSymbol.IsGenericType
+				? typeSymbol.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+				: typeSymbol.Name;
 		}
 
 		/// <summary>
