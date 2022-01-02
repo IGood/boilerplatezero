@@ -11,7 +11,7 @@
     <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <PackageId>boilerplatezero</PackageId>
-    <Version>1.8.0</Version>
+    <Version>1.8.0-beta</Version>
     <Authors>IGood</Authors>
     <Company />
     <Copyright>Copyright (c) Ian Good</Copyright>
@@ -28,6 +28,8 @@ Included generators:
     <PackageTags>bpz,source generator,wpf,dependency properties,routed events</PackageTags>
     <PackageIcon>bpz logo dark.png</PackageIcon>
     <PackageReadmeFile>nuget readme.md</PackageReadmeFile>
+    <!-- 👇 fix for NU5128 https://docs.microsoft.com/en-us/nuget/reference/errors-and-warnings/nu5128 -->
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
   </PropertyGroup>
 
   <ItemGroup>
