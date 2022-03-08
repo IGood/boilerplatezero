@@ -389,8 +389,8 @@ using System.Windows;
 						: $"({generateThis.PropertyTypeName})";
 
 					// Something like...
-					//	(d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<int>((int)e.OldValue, (int)e.NewValue, FooChangedEvent))
-					changeHandler = $"(d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<{generateThis.PropertyTypeName}>({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue, {fieldName}))";
+					//	static (d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<int>((int)e.OldValue, (int)e.NewValue, FooChangedEvent))
+					changeHandler = $"static (d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<{generateThis.PropertyTypeName}>({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue, {fieldName}))";
 					return true;
 				}
 
@@ -445,8 +445,8 @@ using System.Windows;
 								if (CanCastTo(derivedTypeSymbol, p0TypeSymbol))
 								{
 									// Something like...
-									//	(d, e) => FooPropertyChanged((Goodies.Widget)d, e)
-									changeHandler = $"(d, e) => {methodName}(({p0TypeSymbol.ToDisplayString()})d, e)";
+									//	static (d, e) => FooPropertyChanged((Goodies.Widget)d, e)
+									changeHandler = $"static (d, e) => {methodName}(({p0TypeSymbol.ToDisplayString()})d, e)";
 									return true;
 								}
 							}
@@ -472,8 +472,8 @@ using System.Windows;
 									: null;
 
 								// Something like...
-								//	(d, e) => ((Goodies.Widget)d).OnFooChanged((int)e.OldValue, (int)e.NewValue)
-								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue)";
+								//	static (d, e) => ((Goodies.Widget)d).OnFooChanged((int)e.OldValue, (int)e.NewValue)
+								changeHandler = $"static (d, e) => (({ownerType.ToDisplayString()})d).{methodName}({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue)";
 								return true;
 							}
 						}
@@ -486,8 +486,8 @@ using System.Windows;
 							if (p0TypeSymbol.Equals(argsTypeSymbol, SymbolEqualityComparer.Default))
 							{
 								// Something like...
-								//	(d, e) => ((Goodies.Widget)d).OnFooChanged(e)
-								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}(e)";
+								//	static (d, e) => ((Goodies.Widget)d).OnFooChanged(e)
+								changeHandler = $"static (d, e) => (({ownerType.ToDisplayString()})d).{methodName}(e)";
 								return true;
 							}
 						}
@@ -571,8 +571,8 @@ using System.Windows;
 					if (requireLambda)
 					{
 						// Something like...
-						//	(d, baseValue) => CoerceFoo((Goodies.Widget)d, (int)baseValue)
-						coercionHandler = $"(d, baseValue) => {methodName}({maybeCastArg0}d, {maybeCastArg1}baseValue)";
+						//	static (d, baseValue) => CoerceFoo((Goodies.Widget)d, (int)baseValue)
+						coercionHandler = $"static (d, baseValue) => {methodName}({maybeCastArg0}d, {maybeCastArg1}baseValue)";
 					}
 					else
 					{
