@@ -1,9 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net5.0-windows</TargetFramework>
+    <TargetFramework>net6.0-windows</TargetFramework>
     <LangVersion>latest</LangVersion>
     <UseWPF>true</UseWPF>
+    <UseMaui>true</UseMaui>
     <IsPackable>false</IsPackable>
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>False</GenerateDocumentationFile>

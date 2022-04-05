@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>10.0</LangVersion>
     <Nullable>enable</Nullable>
     <RootNamespace>Bpz</RootNamespace>
   </PropertyGroup>
@@ -11,7 +11,7 @@
     <DevelopmentDependency>true</DevelopmentDependency>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <PackageId>boilerplatezero</PackageId>
-    <Version>1.8.0-beta</Version>
+    <Version>1.9.0-beta</Version>
     <Authors>IGood</Authors>
     <Company />
     <Copyright>Copyright (c) Ian Good</Copyright>
