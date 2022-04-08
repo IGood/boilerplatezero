@@ -292,7 +292,7 @@ using System.Windows;
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{
 				//var metadata = {this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasBindingMode)};
-				return global::Microsoft.Maui.Controls.BindableProperty.Create{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}));
+				return global::Microsoft.Maui.Controls.BindableProperty.Create{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), default(__T));
 			}}
 		}}
 ");

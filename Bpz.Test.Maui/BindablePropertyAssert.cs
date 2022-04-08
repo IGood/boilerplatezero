@@ -1,9 +1,9 @@
 // Copyright © Ian Good
 
-using NUnit.Framework;
 using System;
 using System.Reflection;
 using System.Windows;
+using Xunit;
 
 namespace Bpz.Test.Maui;
 
@@ -15,17 +15,17 @@ public static class BindablePropertyAssert
 		string expectedBpkFieldName = expectedValues.Name + "PropertyKey";
 
 		FieldInfo? bpFieldInfo = expectedValues.OwnerType.GetField(expectedBpFieldName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-		Assert.IsNotNull(bpFieldInfo, $"Missing static bindable property field `{expectedBpFieldName}`.");
+		Assert.NotNull(bpFieldInfo);
 
 		// Check bindable property instance.
 		BindableProperty? bindableProperty = bpFieldInfo!.GetValue(null) as BindableProperty;
-		Assert.IsNotNull(bindableProperty);
+		Assert.NotNull(bindableProperty);
 
-		Assert.AreEqual(expectedValues.OwnerType, bindableProperty!.DeclaringType);
-		Assert.AreEqual(expectedValues.Name, bindableProperty.PropertyName);
-		Assert.AreEqual(expectedValues.PropertyType, bindableProperty.ReturnType);
-		Assert.AreEqual(expectedValues.IsReadOnly, bindableProperty.IsReadOnly);
-		Assert.AreEqual(expectedValues.DefaultBindingMode, bindableProperty.DefaultBindingMode);
+		Assert.Equal(expectedValues.OwnerType, bindableProperty!.DeclaringType);
+		Assert.Equal(expectedValues.Name, bindableProperty.PropertyName);
+		Assert.Equal(expectedValues.PropertyType, bindableProperty.ReturnType);
+		Assert.Equal(expectedValues.IsReadOnly, bindableProperty.IsReadOnly);
+		Assert.Equal(expectedValues.DefaultBindingMode, bindableProperty.DefaultBindingMode);
 
 		// Default value?
 		{
@@ -39,19 +39,19 @@ public static class BindablePropertyAssert
 				expectedDefaultValue = bindableProperty.ReturnType.IsValueType ? Activator.CreateInstance(bindableProperty.ReturnType) : null;
 			}
 
-			Assert.AreEqual(expectedDefaultValue, bindableProperty.DefaultValue);
+			Assert.Equal(expectedDefaultValue, bindableProperty.DefaultValue);
 		}
 
 		if (expectedValues.IsReadOnly)
 		{
 			FieldInfo? bpkFieldInfo = expectedValues.OwnerType.GetField(expectedBpkFieldName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-			Assert.IsNotNull(bpkFieldInfo, $"Missing static bindable property key field `{expectedBpkFieldName}`.");
+			Assert.NotNull(bpkFieldInfo);
 
 			// Check bindable property key instance.
 			BindablePropertyKey? dependencyPropertyKey = bpkFieldInfo!.GetValue(null) as BindablePropertyKey;
-			Assert.IsNotNull(bindableProperty);
+			Assert.NotNull(bindableProperty);
 
-			Assert.AreSame(bindableProperty, dependencyPropertyKey!.BindableProperty);
+			Assert.Same(bindableProperty, dependencyPropertyKey!.BindableProperty);
 		}
 
 		if (expectedValues.IsAttached)
@@ -65,23 +65,23 @@ public static class BindablePropertyAssert
 				MethodInfo? methodInfo = expectedValues.OwnerType.GetMethod(name, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
 
 				// Exists?
-				Assert.IsNotNull(methodInfo, $"Missing static method `{name}`.");
+				Assert.NotNull(methodInfo);
 
 				// Visibility?
-				Assert.IsTrue(methodInfo!.Attributes.HasFlag(attributes));
+				Assert.True(methodInfo!.Attributes.HasFlag(attributes));
 
 				// Parameters?
 				ParameterInfo[] parameters = methodInfo.GetParameters();
 
 				bool isSetter = name.StartsWith("Set");
-				Assert.AreEqual(isSetter ? 2 : 1, parameters.Length);
+				Assert.Equal(isSetter ? 2 : 1, parameters.Length);
 
 				Type expectedTargetType = expectedValues.AttachmentNarrowingType ?? typeof(BindableObject);
-				Assert.AreEqual(expectedTargetType, parameters[0].ParameterType);
+				Assert.Equal(expectedTargetType, parameters[0].ParameterType);
 
 				if (isSetter)
 				{
-					Assert.AreEqual(expectedValues.PropertyType, parameters[1].ParameterType);
+					Assert.Equal(expectedValues.PropertyType, parameters[1].ParameterType);
 				}
 			}
 		}
@@ -91,14 +91,14 @@ public static class BindablePropertyAssert
 			PropertyInfo? clrPropPropInfo = expectedValues.OwnerType.GetProperty(expectedValues.Name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
 			// Exists?
-			Assert.IsNotNull(clrPropPropInfo, $"Missing property `{expectedValues.Name}`.");
+			Assert.NotNull(clrPropPropInfo);
 
 			// Type?
-			Assert.AreEqual(expectedValues.PropertyType, clrPropPropInfo!.PropertyType);
+			Assert.Equal(expectedValues.PropertyType, clrPropPropInfo!.PropertyType);
 
 			// Accessors visibility?
-			Assert.IsTrue(clrPropPropInfo.GetMethod!.Attributes.HasFlag(expectedValues.GetterAttributes));
-			Assert.IsTrue(clrPropPropInfo.SetMethod!.Attributes.HasFlag(expectedValues.SetterAttributes));
+			Assert.True(clrPropPropInfo.GetMethod!.Attributes.HasFlag(expectedValues.GetterAttributes));
+			Assert.True(clrPropPropInfo.SetMethod!.Attributes.HasFlag(expectedValues.SetterAttributes));
 		}
 	}
 
