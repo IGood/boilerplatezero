@@ -4,9 +4,9 @@ using Microsoft.Maui.Controls;
 using System;
 using System.Collections.Generic;
 
-namespace Bpz.Test;
+namespace Bpz.Test.Maui;
 
-public partial class MauiWidget : BindableObject
+public partial class Widget : BindableObject
 {
 	public static readonly BindableProperty MyBool0Property = Gen.MyBool0(true);
 	public static readonly BindableProperty MyBool1Property = Gen.MyBool1<bool>();

@@ -21,11 +21,12 @@
 Included generators:
 - DependencyPropertyGenerator - generates idiomatic WPF dependency property code
 - RoutedEventGenerator - generates idiomatic WPF routed event code
+- BindablePropertyGenerator - generates idiomatic MAUII bindable property code
     </Description>
     <PackageProjectUrl>https://github.com/IGood/boilerplatezero</PackageProjectUrl>
     <RepositoryUrl>https://github.com/IGood/boilerplatezero.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>bpz,source generator,wpf,dependency properties,routed events</PackageTags>
+    <PackageTags>bpz,source generator,wpf,dependency properties,routed events,maui, bindable properties</PackageTags>
     <PackageIcon>bpz logo dark.png</PackageIcon>
     <PackageReadmeFile>nuget readme.md</PackageReadmeFile>
     <!-- 👇 fix for NU5128 https://docs.microsoft.com/en-us/nuget/reference/errors-and-warnings/nu5128 -->

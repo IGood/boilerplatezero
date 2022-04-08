@@ -12,14 +12,14 @@ using System.Text;
 namespace Bpz.Maui;
 
 /// <summary>
-/// Represents a source generator that produces idiomatic code for Maui bindable properties.
+/// Represents a source generator that produces idiomatic code for MAUI bindable properties.
 /// 
 /// <para>Looks for things like<br/>
 /// <c>public static readonly BindableProperty FooProperty = Gen.Foo(123);</c><br/>
 /// and generates the appropriate registration and getter/setter code.</para>
 /// 
 /// Property-changed handlers with appropriate names and compatible signatures like<br/>
-/// <c>private static void FooPropertyChanged(MyClass self, DependencyPropertyChangedEventArgs e) { ... }</c><br/>
+/// <c>private static void FooPropertyChanged(MyClass self, int oldValue, int newValue) { ... }</c><br/>
 /// will be included in the registration.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
@@ -59,9 +59,9 @@ public class BindablePropertyGenerator : ISourceGenerator
 		foreach (var namespaceGroup in namespaces)
 		{
 			// Get these type symbols now so we don't waste time finding them each time we need them later.
-			this.objTypeSymbol ??= context.Compilation.GetTypeByMetadataName("global::System.Object")!;
-			this.boTypeSymbol ??= context.Compilation.GetTypeByMetadataName("global::Microsoft.Maui.Controls.BindableObject")!;
-			this.bmTypeSymbol ??= context.Compilation.GetTypeByMetadataName("global::Microsoft.Maui.Controls.BindingMode")!;
+			this.objTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Object")!;
+			this.boTypeSymbol ??= context.Compilation.GetTypeByMetadataName("Microsoft.Maui.Controls.BindableObject")!;
+			this.bmTypeSymbol ??= context.Compilation.GetTypeByMetadataName("Microsoft.Maui.Controls.BindingMode")!;
 
 			string namespaceName = namespaceGroup.Key.ToString();
 			sourceBuilder.Append($@"
@@ -116,30 +116,30 @@ using System.Windows;
 	private void ApppendSource(GeneratorExecutionContext context, StringBuilder sourceBuilder, GenerationDetails generateThis)
 	{
 		string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
-		string dpMemberName = propertyName + "Property";
-		string dpkMemberName = propertyName + "PropertyKey";
+		string bpMemberName = propertyName + "Property";
+		string bpkMemberName = propertyName + "PropertyKey";
 
-		Accessibility dpAccess = generateThis.FieldSymbol.DeclaredAccessibility;
-		Accessibility dpkAccess = generateThis.FieldSymbol.DeclaredAccessibility;
+		Accessibility bpAccess = generateThis.FieldSymbol.DeclaredAccessibility;
+		Accessibility bpkAccess = generateThis.FieldSymbol.DeclaredAccessibility;
 
 		// If this is a BindablePropertyKey, then we may need to create the corresponding BindableProperty field.
 		// We do this because it's proper to always have a BindableProperty field & because the BindableProperty
 		// field is required when using TemplateBindings in XAML.
-		if (generateThis.IsDpk)
+		if (generateThis.IsBpk)
 		{
-			ISymbol? dpMemberSymbol = generateThis.FieldSymbol.ContainingType.GetMembers(dpMemberName).FirstOrDefault();
-			if (dpMemberSymbol != null)
+			ISymbol? bpMemberSymbol = generateThis.FieldSymbol.ContainingType.GetMembers(bpMemberName).FirstOrDefault();
+			if (bpMemberSymbol != null)
 			{
-				dpAccess = dpMemberSymbol.DeclaredAccessibility;
+				bpAccess = bpMemberSymbol.DeclaredAccessibility;
 			}
 			else
 			{
-				dpAccess = Accessibility.Public;
+				bpAccess = Accessibility.Public;
 
 				// Something like...
 				//	public static readonly BindableProperty FooProperty = FooPropertyKey.BindableProperty;
 				sourceBuilder.Append($@"
-		public static readonly global::Microsoft.Maui.Controls.BindableProperty {dpMemberName} = {dpkMemberName}.BindableProperty;");
+		public static readonly global::Microsoft.Maui.Controls.BindableProperty {bpMemberName} = {bpkMemberName}.BindableProperty;");
 			}
 		}
 
@@ -214,15 +214,15 @@ using System.Windows;
 			}
 
 			// Write the static get/set methods source code.
-			string getterAccess = dpAccess.ToString().ToLower();
-			string setterAccess = generateThis.IsDpk ? dpkAccess.ToString().ToLower() : getterAccess;
-			string setterArg0 = generateThis.IsDpk ? dpkMemberName : dpMemberName;
+			string getterAccess = bpAccess.ToString().ToLower();
+			string setterAccess = generateThis.IsBpk ? bpkAccess.ToString().ToLower() : getterAccess;
+			string setterArg0 = generateThis.IsBpk ? bpkMemberName : bpMemberName;
 
 			// Something like...
 			//	public static int GetFoo(BindableObject bindable) => (int)bindable.GetValue(FooProperty);
 			//	private static void SetFoo(BindableObject bindable, int value) => bindable.SetValue(FooPropertyKey);
 			sourceBuilder.Append($@"
-		{getterAccess} static {generateThis.PropertyTypeName} Get{propertyName}({targetTypeName} bindable) => ({generateThis.PropertyTypeName})bindable.GetValue({dpMemberName});
+		{getterAccess} static {generateThis.PropertyTypeName} Get{propertyName}({targetTypeName} bindable) => ({generateThis.PropertyTypeName})bindable.GetValue({bpMemberName});
 		{setterAccess} static void Set{propertyName}({targetTypeName} bindable, {generateThis.PropertyTypeName} value) => bindable.SetValue({setterArg0}, value);");
 		}
 		else
@@ -236,9 +236,9 @@ using System.Windows;
 			}
 
 			// Write the instance property source code.
-			string propertyAccess = dpAccess.ToString().ToLower();
-			string setterAccess = generateThis.IsDpk ? (dpkAccess.ToString().ToLower() + " ") : "";
-			string setterArg0 = generateThis.IsDpk ? dpkMemberName : dpMemberName;
+			string propertyAccess = bpAccess.ToString().ToLower();
+			string setterAccess = generateThis.IsBpk ? (bpkAccess.ToString().ToLower() + " ") : "";
+			string setterArg0 = generateThis.IsBpk ? bpkMemberName : bpMemberName;
 
 			// Something like...
 			//	public int Foo
@@ -249,13 +249,13 @@ using System.Windows;
 			sourceBuilder.Append($@"
 		{maybeDox}{propertyAccess} {generateThis.PropertyTypeName} {propertyName}
 		{{
-			get => ({generateThis.PropertyTypeName})this.GetValue({dpMemberName});
+			get => ({generateThis.PropertyTypeName})this.GetValue({bpMemberName});
 			{setterAccess}set => this.SetValue({setterArg0}, value);
 		}}");
 		}
 
 		// Write the static helper method.
-		string what = generateThis.IsDpk
+		string what = generateThis.IsBpk
 			? (generateThis.IsAttached ? "a read-only attached property" : "a read-only bindable property")
 			: (generateThis.IsAttached ? "an attached property" : "a bindable property");
 
@@ -273,14 +273,14 @@ using System.Windows;
 
 			if (hasBindingMode)
 			{
-				@params[numParams++] = "Microsoft.Maui.Controls.BindingMode defaultBindingMode";
+				@params[numParams++] = "global::Microsoft.Maui.Controls.BindingMode defaultBindingMode";
 			}
 
 			parameters = string.Join(", ", @params, 0, numParams);
 		}
 
 		string a = generateThis.IsAttached ? "Attached" : "";
-		string ro = generateThis.IsDpk ? "ReadOnly" : "";
+		string ro = generateThis.IsBpk ? "ReadOnly" : "";
 		string ownerTypeName = GeneratorOps.GetTypeName(generateThis.FieldSymbol.ContainingType);
 
 		sourceBuilder.Append($@"
@@ -291,8 +291,8 @@ using System.Windows;
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{
-				var metadata = {this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasBindingMode)};
-				return global::Microsoft.Maui.Controls.BindableProperty.Create{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata);
+				//var metadata = {this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasBindingMode)};
+				return global::Microsoft.Maui.Controls.BindableProperty.Create{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}));
 			}}
 		}}
 ");
@@ -318,24 +318,14 @@ using System.Windows;
 		// Look for associated handlers...
 		foreach (ISymbol memberSymbol in ownerType.GetMembers())
 		{
-			string maybeChangeHandler;
+			string maybeChangedHandler;
 
 			switch (memberSymbol.Kind)
 			{
-				case SymbolKind.Field:
-					// If we haven't found a routed event or better, then check this field.
-					if (changeHandlerKind < ChangeHandlerKind.RoutedEvent &&
-						_TryGetChangeHandler2((IFieldSymbol)memberSymbol, out maybeChangeHandler))
-					{
-						changeHandlerKind = ChangeHandlerKind.RoutedEvent;
-						changeHandler = maybeChangeHandler;
-					}
-					break;
-
 				case SymbolKind.Method:
 					// If we haven't found a static property-changed method, then check this method.
 					if (changeHandlerKind < ChangeHandlerKind.StaticMethod &&
-						_TryGetChangeHandler((IMethodSymbol)memberSymbol, out maybeChangeHandler, out bool isStatic))
+						_TryGetChangedHandler((IMethodSymbol)memberSymbol, out maybeChangedHandler, out bool isStatic))
 					{
 						if (isStatic)
 						{
@@ -347,7 +337,7 @@ using System.Windows;
 							changeHandlerKind = ChangeHandlerKind.InstanceMethod;
 						}
 
-						changeHandler = maybeChangeHandler;
+						changeHandler = maybeChangedHandler;
 
 						break;
 					}
@@ -371,11 +361,11 @@ using System.Windows;
 		}
 
 		// See if we have any property-changed handlers like...
-		//	static void FooPropertyChanged(Widget self, object? oldValue, object? newValue) { ... }
-		//	static void OnFooChanged(Widget self, object? oldValue, object? newValue) { ... }
-		//	void FooChanged(object oldValue, object newValue) { ... }
-		//	void OnFooChanged(string oldFoo, string newFoo) { ... }
-		bool _TryGetChangeHandler(IMethodSymbol methodSymbol, out string changeHandler, out bool isStatic)
+		//	static void FooPropertyChanged(BindableObject bindable, object oldValue, object newValue) { ... }
+		//	static void OnFooChanged(Widget self, int oldValue, int newValue) { ... }
+		//	void FooChanged(int oldValue, int newValue) { ... }
+		//	void OnFooChanged(int oldFoo, int newFoo) { ... }
+		bool _TryGetChangedHandler(IMethodSymbol methodSymbol, out string changeHandler, out bool isStatic)
 		{
 			isStatic = methodSymbol.IsStatic;
 
@@ -385,42 +375,48 @@ using System.Windows;
 
 				if (isStatic)
 				{
-					if (methodSymbol.Parameters.Length == 2 &&
+					if (methodSymbol.Parameters.Length == 3 &&
 						methodName.EndsWith("Changed", StringComparison.Ordinal) &&
 						methodName.IndexOf(propertyName, 0, methodName.Length - "Changed".Length, StringComparison.Ordinal) >= 0)
 					{
 						ITypeSymbol p0TypeSymbol = methodSymbol.Parameters[0].Type;
 						ITypeSymbol p1TypeSymbol = methodSymbol.Parameters[1].Type;
+						ITypeSymbol p2TypeSymbol = methodSymbol.Parameters[2].Type;
 
-						if (p1TypeSymbol.Equals(argsTypeSymbol, SymbolEqualityComparer.Default))
+						if (p0TypeSymbol.Equals(boTypeSymbol, SymbolEqualityComparer.Default) &&
+							p1TypeSymbol.Equals(objTypeSymbol, SymbolEqualityComparer.Default) &&
+							p2TypeSymbol.Equals(objTypeSymbol, SymbolEqualityComparer.Default))
 						{
-							if (p0TypeSymbol.Equals(boTypeSymbol, SymbolEqualityComparer.Default))
-							{
-								// Signature matches `System.Windows.PropertyChangedCallback`, so we can just use the method name.
-								changeHandler = methodSymbol.Name;
-								return true;
-							}
+							// Signature matches `Microsoft.Maui.Controls.BindableProperty.BindingPropertyChangedDelegate`, so we can just use the method name.
+							changeHandler = methodSymbol.Name;
+							return true;
+						}
 
-							// Need to ensure type of p0 is valid.
-							ITypeSymbol derivedTypeSymbol;
-							if (generateThis.IsAttached)
-							{
-								// Narrowing type must be equal to, or derived from, the p0 type.
-								derivedTypeSymbol = generateThis.AttachmentNarrowingType ?? boTypeSymbol;
-							}
-							else
-							{
-								// Owner type must be equal to, or derived from, the p0 type.
-								derivedTypeSymbol = ownerType;
-							}
+						// Need to ensure type of p0 is valid.
+						ITypeSymbol derivedTypeSymbol;
+						if (generateThis.IsAttached)
+						{
+							// Narrowing type must be equal to, or derived from, the p0 type.
+							derivedTypeSymbol = generateThis.AttachmentNarrowingType ?? boTypeSymbol;
+						}
+						else
+						{
+							// Owner type must be equal to, or derived from, the p0 type.
+							derivedTypeSymbol = ownerType;
+						}
 
-							if (CanCastTo(derivedTypeSymbol, p0TypeSymbol))
-							{
-								// Something like...
-								//	static (d, e) => FooPropertyChanged((Goodies.Widget)d, e)
-								changeHandler = $"static (d, e) => {methodName}(({p0TypeSymbol.ToDisplayString()})d, e)";
-								return true;
-							}
+						if (CanCastTo(derivedTypeSymbol, p0TypeSymbol) &&
+							p1TypeSymbol.Equals(p2TypeSymbol, SymbolEqualityComparer.Default) &&
+							p2TypeSymbol.Equals(generateThis.PropertyType, SymbolEqualityComparer.Default))
+						{
+							string? maybeCastArgs = (generateThis.PropertyType.SpecialType != SpecialType.System_Object)
+								? $"({generateThis.PropertyTypeName})"
+								: null;
+
+							// Something like...
+							//	static (bindable, oldValue, newValue) => FooPropertyChanged((Goodies.Widget)bindable, (int)oldValue, (int)newValue)
+							changeHandler = $"static (bindable, oldValue, newValue) => {methodName}(({p0TypeSymbol.ToDisplayString()})bindable, {maybeCastArgs}oldValue, {maybeCastArgs}newValue)";
+							return true;
 						}
 					}
 				}
@@ -444,22 +440,8 @@ using System.Windows;
 								: null;
 
 							// Something like...
-							//	static (d, e) => ((Goodies.Widget)d).OnFooChanged((int)e.OldValue, (int)e.NewValue)
-							changeHandler = $"static (d, e) => (({ownerType.ToDisplayString()})d).{methodName}({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue)";
-							return true;
-						}
-					}
-					// Instance methods with 1 parameter look like...
-					//	void OnFooChanged(DependencyPropertyChangedEventArgs e) { ... }
-					else if (methodSymbol.Parameters.Length == 1)
-					{
-						ITypeSymbol p0TypeSymbol = methodSymbol.Parameters[0].Type;
-
-						if (p0TypeSymbol.Equals(argsTypeSymbol, SymbolEqualityComparer.Default))
-						{
-							// Something like...
-							//	static (d, e) => ((Goodies.Widget)d).OnFooChanged(e)
-							changeHandler = $"static (d, e) => (({ownerType.ToDisplayString()})d).{methodName}(e)";
+							//	static (bindable, oldValue, newValue) => ((Goodies.Widget)bindable).OnFooChanged((int)oldValue, (int)newValue)
+							changeHandler = $"static (bindable, oldValue, newValue) => (({ownerType.ToDisplayString()})bindable).{methodName}({maybeCastArgs}oldValue, {maybeCastArgs}newValue)";
 							return true;
 						}
 					}
@@ -543,7 +525,7 @@ using System.Windows;
 				if (requireLambda)
 				{
 					// Something like...
-					//	static (d, baseValue) => CoerceFoo((Goodies.Widget)bindable, (int)value)
+					//	static (bindable, value) => CoerceFoo((Goodies.Widget)bindable, (int)value)
 					coercionHandler = $"static (bindable, value) => {methodName}({maybeCastArg0}bindable, {maybeCastArg1}value)";
 				}
 				else
@@ -590,9 +572,9 @@ using System.Windows;
 	/// </summary>
 	private static IEnumerable<GenerationDetails> UpdateAndFilterGenerationRequests(GeneratorExecutionContext context, IEnumerable<GenerationDetails> requests)
 	{
-		INamedTypeSymbol? dpTypeSymbol = context.Compilation.GetTypeByMetadataName("global::Microsoft.Maui.Controls.BindableProperty");
-		INamedTypeSymbol? dpkTypeSymbol = context.Compilation.GetTypeByMetadataName("global::Microsoft.Maui.Controls.BindablePropertyKey");
-		if (dpTypeSymbol == null || dpkTypeSymbol == null)
+		INamedTypeSymbol? bpTypeSymbol = context.Compilation.GetTypeByMetadataName("Microsoft.Maui.Controls.BindableProperty");
+		INamedTypeSymbol? bpkTypeSymbol = context.Compilation.GetTypeByMetadataName("Microsoft.Maui.Controls.BindablePropertyKey");
+		if (bpTypeSymbol == null || bpkTypeSymbol == null)
 		{
 			// This probably never happens, but whatevs.
 			yield break;
@@ -605,15 +587,15 @@ using System.Windows;
 				fieldSymbol.IsStatic &&
 				fieldSymbol.IsReadOnly)
 			{
-				bool isDp = fieldSymbol.Type.Equals(dpTypeSymbol, SymbolEqualityComparer.Default);
-				if (isDp || fieldSymbol.Type.Equals(dpkTypeSymbol, SymbolEqualityComparer.Default))
+				bool isBp = fieldSymbol.Type.Equals(bpTypeSymbol, SymbolEqualityComparer.Default);
+				if (isBp || fieldSymbol.Type.Equals(bpkTypeSymbol, SymbolEqualityComparer.Default))
 				{
 					string methodName = gd.MethodNameNode.Identifier.ValueText;
-					string expectedFieldName = methodName + (isDp ? "Property" : "PropertyKey");
+					string expectedFieldName = methodName + (isBp ? "Property" : "PropertyKey");
 					if (fieldSymbol.Name == expectedFieldName)
 					{
 						gd.FieldSymbol = fieldSymbol;
-						gd.IsDpk = !isDp;
+						gd.IsBpk = !isBp;
 						yield return gd;
 					}
 					else
@@ -623,7 +605,7 @@ using System.Windows;
 				}
 				else
 				{
-					context.ReportDiagnostic(Diagnostics.UnexpectedFieldType(fieldSymbol, dpTypeSymbol, dpkTypeSymbol));
+					context.ReportDiagnostic(Diagnostics.UnexpectedFieldType(fieldSymbol, bpTypeSymbol, bpkTypeSymbol));
 				}
 			}
 		}
@@ -662,15 +644,18 @@ using System.Windows;
 	}
 
 	/// <summary>
-	/// Specifies potential handler behaviors that are associated with a dependency property.
+	/// Specifies potential handler behaviors that are associated with a bindable property.
 	/// </summary>
 	[Flags]
 	private enum AssociatedHandlers
 	{
 		None = 0,
-		PropertyChanged = 1 << 0,
-		Coerce = 1 << 1,
-		All = PropertyChanged | Coerce,
+		Validate = 1 << 0,
+		PropertyChanged = 1 << 1,
+		PropertyChanging = 1 << 2,
+		Coerce = 1 << 3,
+		CreateDefault = 1 << 4,
+		All = Validate | PropertyChanging | PropertyChanged | Coerce | CreateDefault,
 	}
 
 	/// <summary>
@@ -681,7 +666,7 @@ using System.Windows;
 	private enum ChangeHandlerKind
 	{
 		None,
-		RoutedEvent,
+		Event,
 		InstanceMethod,
 		StaticMethod,
 	}
@@ -722,7 +707,7 @@ using System.Windows;
 	}
 
 	/// <summary>
-	/// Represents a candidate dependency property for which source may be generated.
+	/// Represents a candidate bindable property for which source may be generated.
 	/// </summary>
 	private class GenerationDetails
 	{
@@ -733,19 +718,19 @@ using System.Windows;
 		}
 
 		/// <summary>
-		/// Gets the syntax node representing the name of the method called to register the dependency property.
+		/// Gets the syntax node representing the name of the method called to register the bindable property.
 		/// </summary>
 		public SimpleNameSyntax MethodNameNode { get; }
 
 		/// <summary>
-		/// Gets the symbol representing the dependency property (or dependency property key) field.
+		/// Gets the symbol representing the bindable property (or bindable property key) field.
 		/// </summary>
 		public IFieldSymbol FieldSymbol { get; set; } = null!;
 
 		/// <summary>
-		/// Gets or sets a value indicating whether this is a dependency property key.
+		/// Gets or sets a value indicating whether this is a bindable property key.
 		/// </summary>
-		public bool IsDpk { get; set; }
+		public bool IsBpk { get; set; }
 
 		/// <summary>
 		/// Gets whether this is an attached property.
@@ -760,12 +745,12 @@ using System.Windows;
 		public ITypeSymbol? AttachmentNarrowingType { get; set; }
 
 		/// <summary>
-		/// Gets or sets the type of the dependency property.
+		/// Gets or sets the type of the bindable property.
 		/// </summary>
 		public ITypeSymbol? PropertyType { get; set; }
 
 		/// <summary>
-		/// Gets or sets the name of the type of the dependency property.
+		/// Gets or sets the name of the type of the bindable property.
 		/// </summary>
 		public string PropertyTypeName { get; set; } = "object";
 	}
