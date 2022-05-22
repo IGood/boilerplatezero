@@ -21,6 +21,9 @@ namespace Bpz.Test
 			//*/
 		}
 
+		/// <summary>
+		/// Represents the dimensions of a grid cell to which elements will be snapped.
+		/// </summary>
 		public static readonly DependencyProperty CellSizeProperty = GenAttached<Canvas>.CellSize(100.0, FrameworkPropertyMetadataOptions.Inherits);
 	}
 
