@@ -173,10 +173,14 @@ using System.Windows;
 				string methodsAccess = generateThis.FieldSymbol.DeclaredAccessibility.ToString().ToLower();
 
 				// Something like...
+				//	/// <summary>Adds a handler for the <see cref="FooChangedEvent"/> attached event.</summary>
 				//	public static void AddFooChangedHandler(DependencyObject d, RoutedPropertyChangedEventHandler<int> handler) => (d as UIElement)?.AddHandler(FooChangedEvent, handler);
+				//	/// <summary>Removes a handler for the <see cref="FooChangedEvent"/> attached event.</summary>
 				//	public static void RemoveFooChangedHandler(DependencyObject d, RoutedPropertyChangedEventHandler<int> handler) => (d as UIElement)?.RemoveHandler(FooChangedEvent, handler);
 				sourceBuilder.Append($@"
+		/// <summary>Adds a handler for the <see cref=""{routedEventMemberName}""/> attached event.</summary>
 		{methodsAccess} static void Add{eventName}Handler({targetTypeName} d, {generateThis.EventHandlerTypeName} handler) => {callerExpression}.AddHandler({routedEventMemberName}, handler);
+		/// <summary>Removes a handler for the <see cref=""{routedEventMemberName}""/> attached event.</summary>
 		{methodsAccess} static void Remove{eventName}Handler({targetTypeName} d, {generateThis.EventHandlerTypeName} handler) => {callerExpression}.RemoveHandler({routedEventMemberName}, handler);");
 			}
 			else
@@ -184,9 +188,14 @@ using System.Windows;
 				genClassDecl = "Gen";
 
 				// Let's include the documentation because that's nice.
-				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? maybeDox))
+				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? doxComment))
 				{
-					maybeDox += "\t\t";
+					doxComment += "\t\t";
+				}
+				else
+				{
+					doxComment = $@"/// <summary>Occurs when the <see cref=""{routedEventMemberName}""/> routed event is raised.</summary>
+		";
 				}
 
 				// Write the instance event source code.
@@ -199,7 +208,7 @@ using System.Windows;
 				//		remove => this.RemoveHandler(FooChangedEvent, value);
 				//	}
 				sourceBuilder.Append($@"
-		{maybeDox}{eventAccess} event {generateThis.EventHandlerTypeName} {eventName}
+		{doxComment}{eventAccess} event {generateThis.EventHandlerTypeName} {eventName}
 		{{
 			add => this.AddHandler({routedEventMemberName}, value);
 			remove => this.RemoveHandler({routedEventMemberName}, value);
