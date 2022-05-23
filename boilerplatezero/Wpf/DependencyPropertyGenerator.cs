@@ -222,34 +222,16 @@ using System.Windows;
 				string setterAccess = generateThis.IsDpk ? dpkAccess.ToString().ToLower() : getterAccess;
 				string setterArg0 = generateThis.IsDpk ? dpkMemberName : dpMemberName;
 
-				string getterDox;
-				string setterDox;
-
-				// Let's include documentation because that's nice.
-				// Copy from the field or fall back to a default.
-				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? doxComment))
-				{
-					doxComment += "\t\t";
-					getterDox = doxComment;
-					setterDox = doxComment;
-				}
-				else
-				{
-					// Generate useless default documentation like...
-					//	/// <summary>Gets the value of the <see cref="Foo"/> attached property.</summary>
-					// so the compiler doesn't warn about missing comments.
-					getterDox = $@"/// <summary>Gets the value of the <see cref=""{dpMemberName}""/> attached property.</summary>
-		";
-					setterDox = $@"/// <summary>Sets the value of the <see cref=""{dpMemberName}""/> attached property.</summary>
-		";
-				}
-
 				// Something like...
+				//	/// <summary>Gets the value of the <see cref="FooProperty"/> attached property.</summary>
 				//	public static int GetFoo(DependencyObject d) => (int)d.GetValue(FooProperty);
+				//	/// <summary>Sets the value of the <see cref="FooProperty"/> attached property.</summary>
 				//	private static void SetFoo(DependencyObject d, int value) => d.SetValue(FooPropertyKey);
 				sourceBuilder.Append($@"
-		{getterDox}{getterAccess} static {generateThis.PropertyTypeName} Get{propertyName}({targetTypeName} d) => ({generateThis.PropertyTypeName})d.GetValue({dpMemberName});
-		{setterDox}{setterAccess} static void Set{propertyName}({targetTypeName} d, {generateThis.PropertyTypeName} value) => d.SetValue({setterArg0}, value);");
+		/// <summary>Gets the value of the <see cref=""{dpMemberName}""/> attached property.</summary>
+		{getterAccess} static {generateThis.PropertyTypeName} Get{propertyName}({targetTypeName} d) => ({generateThis.PropertyTypeName})d.GetValue({dpMemberName});
+		/// <summary>Sets the value of the <see cref=""{dpMemberName}""/> attached property.</summary>
+		{setterAccess} static void Set{propertyName}({targetTypeName} d, {generateThis.PropertyTypeName} value) => d.SetValue({setterArg0}, value);");
 			}
 			else
 			{
@@ -269,10 +251,10 @@ using System.Windows;
 				else
 				{
 					// Generate useless default documentation like...
-					//	/// <summary>Gets or sets the value of the <see cref="Foo"/> dependency property.</summary>
+					//	/// <summary>Gets or sets the value of the <see cref="FooProperty"/> dependency property.</summary>
 					// so the compiler doesn't warn about missing comments.
 					string? orSets = (setterAccess == null) ? "or sets " : null;
-					doxComment = $@"/// <summary>Gets {orSets}the value of the <see cref=""{propertyName}""/> dependency property.</summary>
+					doxComment = $@"/// <summary>Gets {orSets}the value of the <see cref=""{dpMemberName}""/> dependency property.</summary>
 		";
 				}
 
