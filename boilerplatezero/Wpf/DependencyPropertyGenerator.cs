@@ -243,7 +243,7 @@ using System.Windows;
 				string setterArg0 = generateThis.IsDpk ? dpkMemberName : dpMemberName;
 
 				// Let's include documentation because that's nice.
-				// Copy from the field or fall back to a default.
+				// Copy from the field or fall back to a default (so the compiler doesn't warn about missing comments).
 				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? doxComment))
 				{
 					doxComment += "\t\t";
@@ -252,7 +252,6 @@ using System.Windows;
 				{
 					// Generate useless default documentation like...
 					//	/// <summary>Gets or sets the value of the <see cref="FooProperty"/> dependency property.</summary>
-					// so the compiler doesn't warn about missing comments.
 					string? orSets = (setterAccess == null) ? "or sets " : null;
 					doxComment = $@"/// <summary>Gets {orSets}the value of the <see cref=""{dpMemberName}""/> dependency property.</summary>
 		";

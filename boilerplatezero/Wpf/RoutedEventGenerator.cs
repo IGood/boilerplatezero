@@ -188,12 +188,15 @@ using System.Windows;
 				genClassDecl = "Gen";
 
 				// Let's include the documentation because that's nice.
+				// Copy from the field or fall back to a default (so the compiler doesn't warn about missing comments).
 				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? doxComment))
 				{
 					doxComment += "\t\t";
 				}
 				else
 				{
+					// Generate useless default documentation like...
+					//	/// <summary>Occurs when the <see cref="FooChangedEvent"/> routed event is raised.</summary>
 					doxComment = $@"/// <summary>Occurs when the <see cref=""{routedEventMemberName}""/> routed event is raised.</summary>
 		";
 				}
