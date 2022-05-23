@@ -223,26 +223,39 @@ using System.Windows;
 				string setterArg0 = generateThis.IsDpk ? dpkMemberName : dpMemberName;
 
 				// Something like...
+				//	/// <summary>Gets the value of the <see cref="FooProperty"/> attached property.</summary>
 				//	public static int GetFoo(DependencyObject d) => (int)d.GetValue(FooProperty);
+				//	/// <summary>Sets the value of the <see cref="FooProperty"/> attached property.</summary>
 				//	private static void SetFoo(DependencyObject d, int value) => d.SetValue(FooPropertyKey);
 				sourceBuilder.Append($@"
+		/// <summary>Gets the value of the <see cref=""{dpMemberName}""/> attached property.</summary>
 		{getterAccess} static {generateThis.PropertyTypeName} Get{propertyName}({targetTypeName} d) => ({generateThis.PropertyTypeName})d.GetValue({dpMemberName});
+		/// <summary>Sets the value of the <see cref=""{dpMemberName}""/> attached property.</summary>
 		{setterAccess} static void Set{propertyName}({targetTypeName} d, {generateThis.PropertyTypeName} value) => d.SetValue({setterArg0}, value);");
 			}
 			else
 			{
 				genClassDecl = "Gen";
 
-				// Let's include the documentation because that's nice.
-				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? maybeDox))
-				{
-					maybeDox += "\t\t";
-				}
-
 				// Write the instance property source code.
 				string propertyAccess = dpAccess.ToString().ToLower();
-				string setterAccess = generateThis.IsDpk ? (dpkAccess.ToString().ToLower() + " ") : "";
+				string? setterAccess = generateThis.IsDpk ? (dpkAccess.ToString().ToLower() + " ") : null;
 				string setterArg0 = generateThis.IsDpk ? dpkMemberName : dpMemberName;
+
+				// Let's include documentation because that's nice.
+				// Copy from the field or fall back to a default (so the compiler doesn't warn about missing comments).
+				if (GeneratorOps.TryGetDocumentationComment(generateThis.MethodNameNode, out string? doxComment))
+				{
+					doxComment += "\t\t";
+				}
+				else
+				{
+					// Generate useless default documentation like...
+					//	/// <summary>Gets or sets the value of the <see cref="FooProperty"/> dependency property.</summary>
+					string? orSets = (setterAccess == null) ? "or sets " : null;
+					doxComment = $@"/// <summary>Gets {orSets}the value of the <see cref=""{dpMemberName}""/> dependency property.</summary>
+		";
+				}
 
 				// Something like...
 				//	public int Foo
@@ -251,7 +264,7 @@ using System.Windows;
 				//		private set => this.SetValue(FooPropertyKey, value);
 				//	}
 				sourceBuilder.Append($@"
-		{maybeDox}{propertyAccess} {generateThis.PropertyTypeName} {propertyName}
+		{doxComment}{propertyAccess} {generateThis.PropertyTypeName} {propertyName}
 		{{
 			get => ({generateThis.PropertyTypeName})this.GetValue({dpMemberName});
 			{setterAccess}set => this.SetValue({setterArg0}, value);
