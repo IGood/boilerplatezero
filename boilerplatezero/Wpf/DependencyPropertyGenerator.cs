@@ -299,6 +299,7 @@ using System.Windows;
 			string a = generateThis.IsAttached ? "Attached" : "";
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
 			string ownerTypeName = GeneratorOps.GetTypeName(generateThis.FieldSymbol.ContainingType);
+			string metadataStr = this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasFlags, out string validationCallbackStr);
 
 			sourceBuilder.Append($@"
 		private static partial class {genClassDecl}
@@ -308,8 +309,8 @@ using System.Windows;
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{
-				var metadata = {this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasFlags)};
-				return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata);
+				var metadata = {metadataStr};
+				return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata, {validationCallbackStr});
 			}}
 		}}
 ");
@@ -320,17 +321,20 @@ using System.Windows;
 		/// Accounts for whether a default value exists.
 		/// Accounts for whether a compatible property-changed handler exists.
 		/// Accounts for whether a compatible coercion handler exists.
+		/// Accounts for whether a compatible validation handler exists.
 		/// </summary>
-		private string GetPropertyMetadataInstance(GenerationDetails generateThis, bool hasDefaultValue, bool hasFlags)
+		private string GetPropertyMetadataInstance(GenerationDetails generateThis, bool hasDefaultValue, bool hasFlags, out string validationCallbackStr)
 		{
 			INamedTypeSymbol ownerType = generateThis.FieldSymbol.ContainingType;
 			string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
 			string coerceMethodName = "Coerce" + propertyName;
+			string validateMethodName = "IsValid" + propertyName;
 
 			AssociatedHandlers foundAssociates = AssociatedHandlers.None;
 			ChangeHandlerKind changeHandlerKind = ChangeHandlerKind.None;
 			string changeHandler = "null";
 			string coercionHandler = "null";
+			string validationHandler = "null";
 
 			// Look for associated handlers...
 			foreach (ISymbol memberSymbol in ownerType.GetMembers())
@@ -374,6 +378,13 @@ using System.Windows;
 							_TryGetCoercionHandler((IMethodSymbol)memberSymbol, out coercionHandler))
 						{
 							foundAssociates |= AssociatedHandlers.Coerce;
+						}
+
+						// If we haven't found a validation handler, then check this method.
+						if (!foundAssociates.HasFlag(AssociatedHandlers.Validate) &&
+							_TryGetValidationHandler((IMethodSymbol)memberSymbol, out validationHandler))
+						{
+							foundAssociates |= AssociatedHandlers.Validate;
 						}
 						break;
 
@@ -600,6 +611,46 @@ using System.Windows;
 				return false;
 			}
 
+			// See if we have any validation handlers like...
+			//	static bool IsValidFoo(object value) { ... }
+			//	static bool IsValidFoo(int value) { ... }
+			bool _TryGetValidationHandler(IMethodSymbol methodSymbol, out string validationHandler)
+			{
+				string methodName = methodSymbol.Name;
+				if (methodSymbol.IsStatic &&
+					methodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean &&
+					methodSymbol.Parameters.Length == 1 &&
+					methodName == validateMethodName)
+				{
+					// Ensure type of p0 is valid. Must be `object` or the property type.
+					ITypeSymbol p0TypeSymbol = methodSymbol.Parameters[0].Type;
+					if (p0TypeSymbol.SpecialType != SpecialType.System_Object)
+					{
+						if (!p0TypeSymbol.Equals(generateThis.PropertyType, SymbolEqualityComparer.Default))
+						{
+							validationHandler = "null";
+							return false;
+						}
+
+						// Something like...
+						//	static (value) => IsValidFoo((int)value)
+						validationHandler = $"static (value) => {methodName}(({generateThis.PropertyTypeName})value)";
+					}
+					else
+					{
+						// Signature is compatible with `System.Windows.ValidateValueCallback`, so we can just use the method name.
+						validationHandler = methodName;
+					}
+
+					return true;
+				}
+
+				validationHandler = "null";
+				return false;
+			}
+
+			validationCallbackStr = validationHandler;
+
 			if (hasFlags)
 			{
 				string defaultValue = hasDefaultValue ? "defaultValue" : "default(__T)";
@@ -711,7 +762,8 @@ using System.Windows;
 			None = 0,
 			PropertyChanged = 1 << 0,
 			Coerce = 1 << 1,
-			All = PropertyChanged | Coerce,
+			Validate = 1 << 2,
+			All = PropertyChanged | Coerce | Validate,
 		}
 
 		/// <summary>
