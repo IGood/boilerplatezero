@@ -209,7 +209,8 @@ using System.Windows;
 					{
 						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
 						targetTypeName = attachmentNarrowingType.ToDisplayString();
-						moreDox = $@"<br/>This attached property is only for use with objects of type <typeparamref name=""__TTarget""/>.";
+						moreDox = $@"<br/>
+			/// This attached property is only for use with objects of type <typeparamref name=""__TTarget""/>.";
 					}
 				}
 				else
@@ -301,11 +302,13 @@ using System.Windows;
 			string ownerTypeName = GeneratorOps.GetTypeName(generateThis.FieldSymbol.ContainingType);
 			string metadataStr = this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasFlags, out string validationCallbackStr);
 
+			string associatedMethodsDox = generateThis.GetAssociatedHandlersDocumentation();
+
 			sourceBuilder.Append($@"
 		private static partial class {genClassDecl}
 		{{
 			/// <summary>
-			/// Registers {what} named ""{propertyName}"" whose type is <typeparamref name=""__T""/>.{moreDox}
+			/// Registers {what} named ""{propertyName}"" whose type is <typeparamref name=""__T""/>.{moreDox}{associatedMethodsDox}
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{
@@ -317,7 +320,7 @@ using System.Windows;
 		}
 
 		/// <summary>
-		/// Gets source text that creates the property metadata object.
+		/// Gets source text that creates the property metadata object and validation callback.
 		/// Accounts for whether a default value exists.
 		/// Accounts for whether a compatible property-changed handler exists.
 		/// Accounts for whether a compatible coercion handler exists.
@@ -415,6 +418,7 @@ using System.Windows;
 					// Something like...
 					//	(d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<int>((int)e.OldValue, (int)e.NewValue, FooChangedEvent))
 					changeHandler = $"(d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<{generateThis.PropertyTypeName}>({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue, {fieldName}))";
+					generateThis.ChangedHandlerName = fieldName;
 					return true;
 				}
 
@@ -450,6 +454,7 @@ using System.Windows;
 								{
 									// Signature matches `System.Windows.PropertyChangedCallback`, so we can just use the method name.
 									changeHandler = methodSymbol.Name;
+									generateThis.ChangedHandlerName = changeHandler;
 									return true;
 								}
 
@@ -471,6 +476,7 @@ using System.Windows;
 									// Something like...
 									//	(d, e) => FooPropertyChanged((Goodies.Widget)d, e)
 									changeHandler = $"(d, e) => {methodName}(({p0TypeSymbol.ToDisplayString()})d, e)";
+									generateThis.ChangedHandlerName = methodName;
 									return true;
 								}
 							}
@@ -498,6 +504,7 @@ using System.Windows;
 								// Something like...
 								//	(d, e) => ((Goodies.Widget)d).OnFooChanged((int)e.OldValue, (int)e.NewValue)
 								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue)";
+								generateThis.ChangedHandlerName = methodName;
 								return true;
 							}
 						}
@@ -512,6 +519,7 @@ using System.Windows;
 								// Something like...
 								//	(d, e) => ((Goodies.Widget)d).OnFooChanged(e)
 								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}(e)";
+								generateThis.ChangedHandlerName = methodName;
 								return true;
 							}
 						}
@@ -604,6 +612,8 @@ using System.Windows;
 						coercionHandler = methodName;
 					}
 
+					generateThis.CoercionMethodName = methodName;
+
 					return true;
 				}
 
@@ -633,14 +643,16 @@ using System.Windows;
 						}
 
 						// Something like...
-						//	static (value) => IsValidFoo((int)value)
-						validationHandler = $"static (value) => {methodName}(({generateThis.PropertyTypeName})value)";
+						//	value => IsValidFoo((int)value)
+						validationHandler = $"value => {methodName}(({generateThis.PropertyTypeName})value)";
 					}
 					else
 					{
 						// Signature is compatible with `System.Windows.ValidateValueCallback`, so we can just use the method name.
 						validationHandler = methodName;
 					}
+
+					generateThis.ValidationMethodName = methodName;
 
 					return true;
 				}
@@ -861,6 +873,51 @@ using System.Windows;
 			/// Gets or sets the name of the type of the dependency property.
 			/// </summary>
 			public string PropertyTypeName { get; set; } = "object";
+
+			/// <summary>
+			/// Gets or sets the name of the method used to validate the property.
+			/// </summary>
+			public string? ValidationMethodName { get; set; }
+
+			/// <summary>
+			/// Gets or sets the name of the method used to coerce the property.
+			/// </summary>
+			public string? CoercionMethodName { get; set; }
+
+			/// <summary>
+			/// Gets or sets the name of the method or event used when the property changes.
+			/// </summary>
+			public string? ChangedHandlerName { get; set; }
+
+			/// <summary>
+			/// Gets a string that represents documentation lines that tell about the handlers that are associated with
+			/// the property.
+			/// </summary>
+			public string GetAssociatedHandlersDocumentation()
+			{
+				int numLines = 0;
+				string[] lines = new string[3];
+
+				if (this.ValidationMethodName != null)
+				{
+					lines[numLines++] = $@"<br/>
+			/// Uses <see cref=""{this.ValidationMethodName}""/> for validation.";
+				}
+
+				if (this.CoercionMethodName != null)
+				{
+					lines[numLines++] = $@"<br/>
+			/// Uses <see cref=""{this.CoercionMethodName}""/> for coercion.";
+				}
+
+				if (this.ChangedHandlerName != null)
+				{
+					lines[numLines++] = $@"<br/>
+			/// Uses <see cref=""{this.ChangedHandlerName}""/> for changes.";
+				}
+
+				return string.Join("", lines, 0, numLines);
+			}
 		}
 	}
 }

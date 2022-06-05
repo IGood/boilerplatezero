@@ -88,6 +88,16 @@ namespace Bpz.Test
 			return Enum.IsDefined(value);
 		}
 
+		private static object CoerceMyDog1(Widget self, Dogs baseValue)
+		{
+			return baseValue;
+		}
+
+		private void OnMyDog1Changed(Dogs oldMyDog1, Dogs newMyDog1)
+		{
+			return;
+		}
+
 		public enum Dogs
 		{
 			Rosie,
