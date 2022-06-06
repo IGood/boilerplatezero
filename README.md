@@ -110,7 +110,7 @@ namespace Goodies
             // - its name contains the property name, "Id", & ends with "Changed"
             // - it is `static` with return type `void`
             // - the type of parameter 0 is compatible with the owner type
-            // - the type of parameter 1 is DependencyPropertyChangedEventArgs
+            // - the type of parameter 1 is `DependencyPropertyChangedEventArgs`
         }
     }
 }

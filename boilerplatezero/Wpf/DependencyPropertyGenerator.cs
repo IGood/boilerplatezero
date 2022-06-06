@@ -194,7 +194,6 @@ using System.Windows;
 			generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
 
 			string genClassDecl;
-			string? moreDox = null;
 
 			if (generateThis.IsAttached)
 			{
@@ -209,8 +208,6 @@ using System.Windows;
 					{
 						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
 						targetTypeName = attachmentNarrowingType.ToDisplayString();
-						moreDox = $@"<br/>
-			/// This attached property is only for use with objects of type <typeparamref name=""__TTarget""/>.";
 					}
 				}
 				else
@@ -302,13 +299,13 @@ using System.Windows;
 			string ownerTypeName = GeneratorOps.GetTypeName(generateThis.FieldSymbol.ContainingType);
 			string metadataStr = this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasFlags, out string validationCallbackStr);
 
-			string associatedMethodsDox = generateThis.GetAssociatedHandlersDocumentation();
+			string moreDox = generateThis.GetAdditionalDocumentation();
 
 			sourceBuilder.Append($@"
 		private static partial class {genClassDecl}
 		{{
 			/// <summary>
-			/// Registers {what} named ""{propertyName}"" whose type is <typeparamref name=""__T""/>.{moreDox}{associatedMethodsDox}
+			/// Registers {what} named ""{propertyName}"" whose type is <typeparamref name=""__T""/>.{moreDox}
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{
@@ -890,13 +887,18 @@ using System.Windows;
 			public string? ChangedHandlerName { get; set; }
 
 			/// <summary>
-			/// Gets a string that represents documentation lines that tell about the handlers that are associated with
-			/// the property.
+			/// Gets a string that represents additional documentation for the property.
 			/// </summary>
-			public string GetAssociatedHandlersDocumentation()
+			public string GetAdditionalDocumentation()
 			{
 				int numLines = 0;
-				string[] lines = new string[3];
+				string[] lines = new string[4];
+
+				if (this.AttachmentNarrowingType != null)
+				{
+					lines[numLines++] = $@"<br/>
+			/// This attached property is only for use with objects of type <typeparamref name=""__TTarget""/>.";
+				}
 
 				if (this.ValidationMethodName != null)
 				{
@@ -916,7 +918,7 @@ using System.Windows;
 			/// Uses <see cref=""{this.ChangedHandlerName}""/> for changes.";
 				}
 
-				return string.Join("", lines, 0, numLines);
+				return string.Concat(lines);
 			}
 		}
 	}
