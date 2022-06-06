@@ -23,6 +23,7 @@ When this happens, the source generator adds private static classes as nested ty
 Additionally...
 - If an appropriate property-changed handler method is found, then it will be used during registration.
 - If an appropriate coercion method is found, then it will be used during registration.
+- If an appropriate validation method is found, then it will be used during registration.
 
 🔗 Jump to...
 - [👩‍💻 Write This, Not That](#-write-this-not-that-property-examples)
