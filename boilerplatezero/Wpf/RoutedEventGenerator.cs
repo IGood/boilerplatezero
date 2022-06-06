@@ -161,7 +161,8 @@ using System.Windows;
 						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
 						targetTypeName = attachmentNarrowingType.ToDisplayString();
 						callerExpression = "d";
-						moreDox = $@"<br/>This attached event is only for use with objects of type <typeparamref name=""__TTarget""/>.";
+						moreDox = $@"<br/>
+			/// This attached event is only for use with objects of type <typeparamref name=""__TTarget""/>.";
 					}
 				}
 				else

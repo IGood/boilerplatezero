@@ -194,7 +194,6 @@ using System.Windows;
 			generateThis.PropertyTypeName = generateThis.PropertyType.ToDisplayString();
 
 			string genClassDecl;
-			string? moreDox = null;
 
 			if (generateThis.IsAttached)
 			{
@@ -209,7 +208,6 @@ using System.Windows;
 					{
 						generateThis.AttachmentNarrowingType = attachmentNarrowingType;
 						targetTypeName = attachmentNarrowingType.ToDisplayString();
-						moreDox = $@"<br/>This attached property is only for use with objects of type <typeparamref name=""__TTarget""/>.";
 					}
 				}
 				else
@@ -299,6 +297,9 @@ using System.Windows;
 			string a = generateThis.IsAttached ? "Attached" : "";
 			string ro = generateThis.IsDpk ? "ReadOnly" : "";
 			string ownerTypeName = GeneratorOps.GetTypeName(generateThis.FieldSymbol.ContainingType);
+			string metadataStr = this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasFlags, out string validationCallbackStr);
+
+			string moreDox = generateThis.GetAdditionalDocumentation();
 
 			sourceBuilder.Append($@"
 		private static partial class {genClassDecl}
@@ -308,29 +309,32 @@ using System.Windows;
 			/// </summary>
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{
-				var metadata = {this.GetPropertyMetadataInstance(generateThis, hasDefaultValue, hasFlags)};
-				return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata);
+				var metadata = {metadataStr};
+				return DependencyProperty.Register{a}{ro}(""{propertyName}"", typeof(__T), typeof({ownerTypeName}), metadata, {validationCallbackStr});
 			}}
 		}}
 ");
 		}
 
 		/// <summary>
-		/// Gets source text that creates the property metadata object.
+		/// Gets source text that creates the property metadata object and validation callback.
 		/// Accounts for whether a default value exists.
 		/// Accounts for whether a compatible property-changed handler exists.
 		/// Accounts for whether a compatible coercion handler exists.
+		/// Accounts for whether a compatible validation handler exists.
 		/// </summary>
-		private string GetPropertyMetadataInstance(GenerationDetails generateThis, bool hasDefaultValue, bool hasFlags)
+		private string GetPropertyMetadataInstance(GenerationDetails generateThis, bool hasDefaultValue, bool hasFlags, out string validationCallbackStr)
 		{
 			INamedTypeSymbol ownerType = generateThis.FieldSymbol.ContainingType;
 			string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
 			string coerceMethodName = "Coerce" + propertyName;
+			string validateMethodName = "IsValid" + propertyName;
 
 			AssociatedHandlers foundAssociates = AssociatedHandlers.None;
 			ChangeHandlerKind changeHandlerKind = ChangeHandlerKind.None;
 			string changeHandler = "null";
 			string coercionHandler = "null";
+			string validationHandler = "null";
 
 			// Look for associated handlers...
 			foreach (ISymbol memberSymbol in ownerType.GetMembers())
@@ -375,6 +379,13 @@ using System.Windows;
 						{
 							foundAssociates |= AssociatedHandlers.Coerce;
 						}
+
+						// If we haven't found a validation handler, then check this method.
+						if (!foundAssociates.HasFlag(AssociatedHandlers.Validate) &&
+							_TryGetValidationHandler((IMethodSymbol)memberSymbol, out validationHandler))
+						{
+							foundAssociates |= AssociatedHandlers.Validate;
+						}
 						break;
 
 					default:
@@ -404,6 +415,7 @@ using System.Windows;
 					// Something like...
 					//	(d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<int>((int)e.OldValue, (int)e.NewValue, FooChangedEvent))
 					changeHandler = $"(d, e) => ((UIElement)d).RaiseEvent(new RoutedPropertyChangedEventArgs<{generateThis.PropertyTypeName}>({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue, {fieldName}))";
+					generateThis.ChangedHandlerName = fieldName;
 					return true;
 				}
 
@@ -439,6 +451,7 @@ using System.Windows;
 								{
 									// Signature matches `System.Windows.PropertyChangedCallback`, so we can just use the method name.
 									changeHandler = methodSymbol.Name;
+									generateThis.ChangedHandlerName = changeHandler;
 									return true;
 								}
 
@@ -460,6 +473,7 @@ using System.Windows;
 									// Something like...
 									//	(d, e) => FooPropertyChanged((Goodies.Widget)d, e)
 									changeHandler = $"(d, e) => {methodName}(({p0TypeSymbol.ToDisplayString()})d, e)";
+									generateThis.ChangedHandlerName = methodName;
 									return true;
 								}
 							}
@@ -487,6 +501,7 @@ using System.Windows;
 								// Something like...
 								//	(d, e) => ((Goodies.Widget)d).OnFooChanged((int)e.OldValue, (int)e.NewValue)
 								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}({maybeCastArgs}e.OldValue, {maybeCastArgs}e.NewValue)";
+								generateThis.ChangedHandlerName = methodName;
 								return true;
 							}
 						}
@@ -501,6 +516,7 @@ using System.Windows;
 								// Something like...
 								//	(d, e) => ((Goodies.Widget)d).OnFooChanged(e)
 								changeHandler = $"(d, e) => (({ownerType.ToDisplayString()})d).{methodName}(e)";
+								generateThis.ChangedHandlerName = methodName;
 								return true;
 							}
 						}
@@ -593,12 +609,56 @@ using System.Windows;
 						coercionHandler = methodName;
 					}
 
+					generateThis.CoercionMethodName = methodName;
+
 					return true;
 				}
 
 				coercionHandler = "null";
 				return false;
 			}
+
+			// See if we have any validation handlers like...
+			//	static bool IsValidFoo(object value) { ... }
+			//	static bool IsValidFoo(int value) { ... }
+			bool _TryGetValidationHandler(IMethodSymbol methodSymbol, out string validationHandler)
+			{
+				string methodName = methodSymbol.Name;
+				if (methodSymbol.IsStatic &&
+					methodSymbol.ReturnType.SpecialType == SpecialType.System_Boolean &&
+					methodSymbol.Parameters.Length == 1 &&
+					methodName == validateMethodName)
+				{
+					// Ensure type of p0 is valid. Must be `object` or the property type.
+					ITypeSymbol p0TypeSymbol = methodSymbol.Parameters[0].Type;
+					if (p0TypeSymbol.SpecialType != SpecialType.System_Object)
+					{
+						if (!p0TypeSymbol.Equals(generateThis.PropertyType, SymbolEqualityComparer.Default))
+						{
+							validationHandler = "null";
+							return false;
+						}
+
+						// Something like...
+						//	value => IsValidFoo((int)value)
+						validationHandler = $"value => {methodName}(({generateThis.PropertyTypeName})value)";
+					}
+					else
+					{
+						// Signature is compatible with `System.Windows.ValidateValueCallback`, so we can just use the method name.
+						validationHandler = methodName;
+					}
+
+					generateThis.ValidationMethodName = methodName;
+
+					return true;
+				}
+
+				validationHandler = "null";
+				return false;
+			}
+
+			validationCallbackStr = validationHandler;
 
 			if (hasFlags)
 			{
@@ -711,7 +771,8 @@ using System.Windows;
 			None = 0,
 			PropertyChanged = 1 << 0,
 			Coerce = 1 << 1,
-			All = PropertyChanged | Coerce,
+			Validate = 1 << 2,
+			All = PropertyChanged | Coerce | Validate,
 		}
 
 		/// <summary>
@@ -809,6 +870,56 @@ using System.Windows;
 			/// Gets or sets the name of the type of the dependency property.
 			/// </summary>
 			public string PropertyTypeName { get; set; } = "object";
+
+			/// <summary>
+			/// Gets or sets the name of the method used to validate the property.
+			/// </summary>
+			public string? ValidationMethodName { get; set; }
+
+			/// <summary>
+			/// Gets or sets the name of the method used to coerce the property.
+			/// </summary>
+			public string? CoercionMethodName { get; set; }
+
+			/// <summary>
+			/// Gets or sets the name of the method or event used when the property changes.
+			/// </summary>
+			public string? ChangedHandlerName { get; set; }
+
+			/// <summary>
+			/// Gets a string that represents additional documentation for the property.
+			/// </summary>
+			public string GetAdditionalDocumentation()
+			{
+				int numLines = 0;
+				string[] lines = new string[4];
+
+				if (this.AttachmentNarrowingType != null)
+				{
+					lines[numLines++] = $@"<br/>
+			/// This attached property is only for use with objects of type <typeparamref name=""__TTarget""/>.";
+				}
+
+				if (this.ValidationMethodName != null)
+				{
+					lines[numLines++] = $@"<br/>
+			/// Uses <see cref=""{this.ValidationMethodName}""/> for validation.";
+				}
+
+				if (this.CoercionMethodName != null)
+				{
+					lines[numLines++] = $@"<br/>
+			/// Uses <see cref=""{this.CoercionMethodName}""/> for coercion.";
+				}
+
+				if (this.ChangedHandlerName != null)
+				{
+					lines[numLines++] = $@"<br/>
+			/// Uses <see cref=""{this.ChangedHandlerName}""/> for changes.";
+				}
+
+				return string.Concat(lines);
+			}
 		}
 	}
 }
