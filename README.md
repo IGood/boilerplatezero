@@ -229,6 +229,23 @@ namespace Goodies
   }
   ```
   </details>
+- <details><summary>detects suitable value validation handlers</summary>
+
+  ```csharp
+  // 👩‍💻 user
+  public static readonly DependencyProperty WrapModeProperty = Gen.WrapMode(TextWrapping.NoWrap);
+  private static bool IsValidWrapMode(TextWrapping value)
+  {
+      // This method will be used as the value validation method during registration!
+      // It was selected because...
+      // - its name is "IsValidWrapMode" (i.e. "IsValid" + the property name)
+      // - it is `static`
+      // - return type is `bool`
+      // - type of parameter 0 is `object` or matches the property type
+      return Enum.IsDefined(value);
+  }
+  ```
+  </details>
 - supports generic owner types
 - <details><summary>supports nullable types</summary>
 
