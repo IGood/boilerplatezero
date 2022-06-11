@@ -9,6 +9,11 @@
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 	</PropertyGroup>
 
+	<Import Project="..\boilerplatezero\boilerplatezero.props" />
+	<PropertyGroup>
+		<!--<Bpz_SkipWpf>true</Bpz_SkipWpf>-->
+	</PropertyGroup>
+
 	<ItemGroup>
 		<Compile Remove="SourceText\*.cs" />
 	</ItemGroup>
@@ -18,7 +23,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.10.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.11.0" />
 		<PackageReference Include="NUnit" Version="3.13.3" />
 		<PackageReference Include="NUnit3TestAdapter" Version="4.2.1" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />

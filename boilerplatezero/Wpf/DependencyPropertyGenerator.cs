@@ -47,6 +47,12 @@ namespace Bpz.Wpf
 		{
 			//DebugMe.Go();
 
+			if (context.AnalyzerConfigOptions.TryGetBuildProperty("Bpz_SkipWpf", out string? skipWpfSwitch) &&
+				"true".Equals(skipWpfSwitch, StringComparison.OrdinalIgnoreCase))
+			{
+				return;
+			}
+
 			this.useNullableContext = (context.ParseOptions as CSharpParseOptions)?.LanguageVersion >= LanguageVersion.CSharp8;
 
 			var syntaxReceiver = (SyntaxReceiver)context.SyntaxReceiver!;

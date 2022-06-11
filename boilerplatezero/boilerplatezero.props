@@ -1,0 +1,11 @@
+﻿<Project>
+	<!-- Declare properties that can be used by our generators. -->
+	<ItemGroup>
+		<CompilerVisibleProperty Include="Bpz_SkipWpf" />
+	</ItemGroup>
+
+	<!-- Optionally, set defaults for our properties. -->
+	<PropertyGroup>
+		<!--<Bpz_SkipWpf>false</Bpz_SkipWpf>-->
+	</PropertyGroup>
+</Project>
