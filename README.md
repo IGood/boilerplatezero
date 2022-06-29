@@ -23,6 +23,7 @@ When this happens, the source generator adds private static classes as nested ty
 Additionally...
 - If an appropriate property-changed handler method is found, then it will be used during registration.
 - If an appropriate coercion method is found, then it will be used during registration.
+- If an appropriate validation method is found, then it will be used during registration.
 
 🔗 Jump to...
 - [👩‍💻 Write This, Not That](#-write-this-not-that-property-examples)
@@ -110,7 +111,7 @@ namespace Goodies
             // - its name contains the property name, "Id", & ends with "Changed"
             // - it is `static` with return type `void`
             // - the type of parameter 0 is compatible with the owner type
-            // - the type of parameter 1 is DependencyPropertyChangedEventArgs
+            // - the type of parameter 1 is `DependencyPropertyChangedEventArgs`
         }
     }
 }
@@ -226,6 +227,23 @@ namespace Goodies
       // - type of parameter 0 is compatible with the owner type
       // - type of parameter 1 is `object` or matches the property type
       return (baseValue >= 0) ? baseValue : 0;
+  }
+  ```
+  </details>
+- <details><summary>detects suitable value validation handlers</summary>
+
+  ```csharp
+  // 👩‍💻 user
+  public static readonly DependencyProperty WrapModeProperty = Gen.WrapMode(TextWrapping.NoWrap);
+  private static bool IsValidWrapMode(TextWrapping value)
+  {
+      // This method will be used as the value validation method during registration!
+      // It was selected because...
+      // - its name is "IsValidWrapMode" (i.e. "IsValid" + the property name)
+      // - it is `static`
+      // - return type is `bool`
+      // - type of parameter 0 is `object` or matches the property type
+      return Enum.IsDefined(value);
   }
   ```
   </details>

@@ -74,5 +74,35 @@ namespace Bpz.Test
 			Mike,
 			Don,
 		}
+
+		public static readonly DependencyProperty MyDog0Property = Gen.MyDog0(Dogs.Rosie);
+		public static readonly DependencyProperty MyDog1Property = Gen.MyDog1(Dogs.Hugo);
+
+		private static bool IsValidMyDog0(object value)
+		{
+			return Enum.IsDefined(typeof(Dogs), value);
+		}
+
+		private static bool IsValidMyDog1(Dogs value)
+		{
+			return Enum.IsDefined(value);
+		}
+
+		private static object CoerceMyDog1(Widget self, Dogs baseValue)
+		{
+			return baseValue;
+		}
+
+		private void OnMyDog1Changed(Dogs oldMyDog1, Dogs newMyDog1)
+		{
+			return;
+		}
+
+		public enum Dogs
+		{
+			Rosie,
+			Hugo,
+			Wally,
+		}
 	}
 }

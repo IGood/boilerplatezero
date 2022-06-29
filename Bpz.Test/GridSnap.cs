@@ -14,28 +14,33 @@ namespace Bpz.Test
 
 		private static void IsEnabledPropertyChanged(UIElement elem, DependencyPropertyChangedEventArgs e)
 		{
-			/*
-			elem.RaiseEvent(new RoutedPropertyChangedEventArgs<bool>((bool)e.OldValue, (bool)e.NewValue, IsEnabledChangedEvent));
-			/*/
 			elem.RaiseRoutedPropertyChangedEvent<bool>(IsEnabledChangedEvent, e);
-			//*/
 		}
 
+		/// <summary>
+		/// Represents the dimensions of a grid cell to which elements will be snapped.
+		/// </summary>
 		public static readonly DependencyProperty CellSizeProperty = GenAttached<Canvas>.CellSize(100.0, FrameworkPropertyMetadataOptions.Inherits);
 	}
 
 	public static class RoutedPropertyChangedEventArgsOps
 	{
+		/// <summary>
+		/// Raises a specific routed property changed event.<br/>
+		/// <paramref name="routedEvent"/> must be a <see cref="RoutedPropertyChangedEventHandler{T}"/> of
+		/// <typeparamref name="T"/>.<br/>
+		/// The type of the changed property must be <typeparamref name="T"/>.
+		/// </summary>
 		public static void RaiseRoutedPropertyChangedEvent<T>(this UIElement elem, RoutedEvent routedEvent, DependencyPropertyChangedEventArgs e)
 		{
 			if (routedEvent.HandlerType != typeof(RoutedPropertyChangedEventHandler<T>))
 			{
-				throw new Exception("Invalid handler type.");
+				throw new ArgumentException("Invalid handler type.");
 			}
 
 			if (e.Property.PropertyType != typeof(T))
 			{
-				throw new Exception("Incorrect property type.");
+				throw new ArgumentException("Invalid property type.");
 			}
 
 			elem.RaiseEvent(new RoutedPropertyChangedEventArgs<T>((T)e.OldValue, (T)e.NewValue, routedEvent));

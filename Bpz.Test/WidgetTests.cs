@@ -190,5 +190,22 @@ namespace Bpz.Test
 
 			Assert.IsFalse(eventWasRaised);
 		}
+
+		[Test(Description = "Validation should take place.")]
+		public void ExpectValidation()
+		{
+			var w = new Widget();
+
+			// These assignments are expected to be valid.
+			w.MyDog0 = Widget.Dogs.Wally;
+			w.MyDog1 = Widget.Dogs.Wally;
+
+
+			// `MyDog0` should use the `IsValidMyDog0` method for validation & this assignment should fail.
+			Assert.Throws<ArgumentException>(() => w.MyDog0 = (Widget.Dogs)123);
+
+			// `MyDog1` should use the `IsValidMyDog1` method for validation & this assignment should fail.
+			Assert.Throws<ArgumentException>(() => w.MyDog1 = (Widget.Dogs)456);
+		}
 	}
 }
