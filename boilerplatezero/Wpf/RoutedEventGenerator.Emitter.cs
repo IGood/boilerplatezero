@@ -81,8 +81,10 @@ public partial class RoutedEventGenerator
 			//	public static void RemoveFooChangedHandler(DependencyObject d, RoutedPropertyChangedEventHandler<int> handler) => (d as UIElement)?.RemoveHandler(FooChangedEvent, handler);
 			sourceBuilder.Append($@"
 		/// <summary>Adds a handler for the <see cref=""{routedEventMemberName}""/> attached event.</summary>
+		[{GeneratorOps.GeneratedCodeAttribute}]
 		{methodsAccess} static void Add{eventName}Handler({targetTypeName} d, {generateThis.EventHandlerTypeName} handler) => {callerExpression}.AddHandler({routedEventMemberName}, handler);
 		/// <summary>Removes a handler for the <see cref=""{routedEventMemberName}""/> attached event.</summary>
+		[{GeneratorOps.GeneratedCodeAttribute}]
 		{methodsAccess} static void Remove{eventName}Handler({targetTypeName} d, {generateThis.EventHandlerTypeName} handler) => {callerExpression}.RemoveHandler({routedEventMemberName}, handler);");
 		}
 		else
@@ -113,7 +115,8 @@ public partial class RoutedEventGenerator
 			//		remove => this.RemoveHandler(FooChangedEvent, value);
 			//	}
 			sourceBuilder.Append($@"
-		{doxComment}{eventAccess} event {generateThis.EventHandlerTypeName} {eventName}
+		{doxComment}[{GeneratorOps.GeneratedCodeAttribute}]
+		{eventAccess} event {generateThis.EventHandlerTypeName} {eventName}
 		{{
 			add => this.AddHandler({routedEventMemberName}, value);
 			remove => this.RemoveHandler({routedEventMemberName}, value);
@@ -131,6 +134,7 @@ public partial class RoutedEventGenerator
 			/// <summary>
 			/// Registers {what} named ""{eventName}"" whose handler type is {eventHandlerTypeDoxString}.{moreDox}
 			/// </summary>
+			[{GeneratorOps.GeneratedCodeAttribute}]
 			public static RoutedEvent {eventName}{maybeGeneric}(RoutingStrategy routingStrategy = RoutingStrategy.Direct)
 			{{
 				return EventManager.RegisterRoutedEvent(""{eventName}"", routingStrategy, typeof({generateThis.EventHandlerTypeName}), typeof({ownerTypeName}));

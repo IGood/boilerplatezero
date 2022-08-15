@@ -143,6 +143,7 @@ using System.Windows;
 					// Something like...
 					//	public static readonly DependencyProperty FooProperty = FooPropertyKey.DependencyProperty;
 					sourceBuilder.Append($@"
+		[{GeneratorOps.GeneratedCodeAttribute}]
 		public static readonly DependencyProperty {dpMemberName} = {dpkMemberName}.DependencyProperty;");
 				}
 			}
@@ -227,8 +228,10 @@ using System.Windows;
 				//	private static void SetFoo(DependencyObject d, int value) => d.SetValue(FooPropertyKey);
 				sourceBuilder.Append($@"
 		/// <summary>Gets the value of the <see cref=""{dpMemberName}""/> attached property.</summary>
+		[{GeneratorOps.GeneratedCodeAttribute}]
 		{getterAccess} static {generateThis.PropertyTypeName} Get{propertyName}({targetTypeName} d) => ({generateThis.PropertyTypeName})d.GetValue({dpMemberName});
 		/// <summary>Sets the value of the <see cref=""{dpMemberName}""/> attached property.</summary>
+		[{GeneratorOps.GeneratedCodeAttribute}]
 		{setterAccess} static void Set{propertyName}({targetTypeName} d, {generateThis.PropertyTypeName} value) => d.SetValue({setterArg0}, value);");
 			}
 			else
@@ -262,7 +265,8 @@ using System.Windows;
 				//		private set => this.SetValue(FooPropertyKey, value);
 				//	}
 				sourceBuilder.Append($@"
-		{doxComment}{propertyAccess} {generateThis.PropertyTypeName} {propertyName}
+		{doxComment}[{GeneratorOps.GeneratedCodeAttribute}]
+		{propertyAccess} {generateThis.PropertyTypeName} {propertyName}
 		{{
 			get => ({generateThis.PropertyTypeName})this.GetValue({dpMemberName});
 			{setterAccess}set => this.SetValue({setterArg0}, value);
@@ -307,6 +311,7 @@ using System.Windows;
 			/// <summary>
 			/// Registers {what} named ""{propertyName}"" whose type is <typeparamref name=""__T""/>.{moreDox}
 			/// </summary>
+			[{GeneratorOps.GeneratedCodeAttribute}]
 			public static {returnType} {propertyName}<__T>({parameters})
 			{{
 				var metadata = {metadataStr};

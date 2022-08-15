@@ -11,6 +11,15 @@ namespace Bpz.CodeAnalysis
 {
 	public static class GeneratorOps
 	{
+		static GeneratorOps()
+		{
+			string tool = typeof(GeneratorOps).Assembly.GetName().Name;
+			System.Version version = typeof(GeneratorOps).Assembly.GetName().Version;
+			GeneratedCodeAttribute = $"global::System.CodeDom.Compiler.GeneratedCode(\"{tool}\", \"{version}\")";
+		}
+
+		public static readonly string GeneratedCodeAttribute;
+
 		/// <summary>
 		/// Attempts to get the generic type argument of a node.<br/>
 		/// Example: <c>Foo&lt;string?&gt;</c> returns <c>true</c> with <c>string?</c>.
