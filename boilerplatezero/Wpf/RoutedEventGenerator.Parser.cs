@@ -63,8 +63,8 @@ public partial class RoutedEventGenerator
 		if (syntaxNode is FieldDeclarationSyntax fieldDecl)
 		{
 			// Looking for "RoutedEvent" as the type of the field...
-			string fieldTypeName = fieldDecl.Declaration.Type.ToString();
-			if (fieldTypeName.EndsWith("RoutedEvent", StringComparison.Ordinal))
+			string? fieldTypeName = (fieldDecl.Declaration.Type as IdentifierNameSyntax)?.Identifier.ValueText;
+			if (fieldTypeName?.EndsWith("RoutedEvent", StringComparison.Ordinal) ?? false)
 			{
 				// Looking for field initialization like "= Gen.FooChanged"...
 				var varDecl = fieldDecl.Declaration.Variables.FirstOrDefault();
