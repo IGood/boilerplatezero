@@ -3,6 +3,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
@@ -14,7 +15,7 @@ namespace Bpz.CodeAnalysis
 		static GeneratorOps()
 		{
 			string tool = typeof(GeneratorOps).Assembly.GetName().Name;
-			System.Version version = typeof(GeneratorOps).Assembly.GetName().Version;
+			Version version = typeof(GeneratorOps).Assembly.GetName().Version;
 			GeneratedCodeAttribute = $"global::System.CodeDom.Compiler.GeneratedCode(\"{tool}\", \"{version}\")";
 		}
 
@@ -118,17 +119,14 @@ namespace Bpz.CodeAnalysis
 
 			char[] chars = typeName.ToCharArray();
 
-			for (int i = indexOfBracket; i < chars.Length; ++i)
+			foreach (ref char c in chars.AsSpan(indexOfBracket))
 			{
-				ref char c = ref chars[i];
-				if (c == '<')
+				_ = c switch
 				{
-					c = '{';
-				}
-				else if (c == '>')
-				{
-					c = '}';
-				}
+					'<' => c = '{',
+					'>' => c = '}',
+					_ => '\0'
+				};
 			}
 
 			return new string(chars);
