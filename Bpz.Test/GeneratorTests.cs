@@ -31,7 +31,7 @@ namespace Bpz.Test
 		{
 			using var source = Resources.GetEmbeddedResource(resourceName);
 			var sourceText = SourceText.From(source);
-			GeneratorHost.RunGenerator(sourceText, new DependencyPropertyGenerator());
+			GeneratorHost.RunGenerator(sourceText, new DependencyPropertyGenerator().AsSourceGenerator());
 		}
 
 		// These aren't really tests, but we do get to set breakpoints & step through our source generator with these.

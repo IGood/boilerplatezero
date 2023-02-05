@@ -7,12 +7,13 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace Bpz.Wpf;
 
 public partial class DependencyPropertyGenerator
 {
-	private void ApppendSource(GeneratorExecutionContext context, StringBuilder sourceBuilder, GenerationDetails generateThis)
+	private void ApppendSource(Compilation compilation, StringBuilder sourceBuilder, GenerationDetails generateThis, CancellationToken cancellationToken)
 	{
 		string propertyName = generateThis.MethodNameNode.Identifier.ValueText;
 		string dpMemberName = propertyName + "Property";
@@ -44,7 +45,7 @@ public partial class DependencyPropertyGenerator
 		}
 
 		// Try to get the generic type argument (if it exists, this will be the type of the property).
-		GeneratorOps.TryGetGenericTypeArgument(context.Compilation, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg, context.CancellationToken);
+		GeneratorOps.TryGetGenericTypeArgument(compilation, generateThis.MethodNameNode, out ITypeSymbol? genTypeArg, cancellationToken);
 
 		// We support 0, 1, or 2 arguments. Check for default value and/or flags arguments.
 		//	(A) Gen.Foo<T>()
@@ -63,7 +64,7 @@ public partial class DependencyPropertyGenerator
 			if (args.Count > 0)
 			{
 				// If the first argument is the flags, then we generate (C); otherwise, we generate (B) or (D).
-				typeOfFirstArg = GetArgumentType(context, args[0]) ?? this.objTypeSymbol;
+				typeOfFirstArg = GetArgumentType(compilation, args[0], cancellationToken) ?? this.objTypeSymbol;
 				if (typeOfFirstArg.Equals(this.flagsTypeSymbol, SymbolEqualityComparer.Default))
 				{
 					hasFlags = true;
@@ -100,7 +101,7 @@ public partial class DependencyPropertyGenerator
 			{
 				genClassDecl = "GenAttached<__TTarget> where __TTarget : DependencyObject";
 
-				if (GeneratorOps.TryGetGenericTypeArgument(context.Compilation, genClassNameNode, out ITypeSymbol? attachmentNarrowingType, context.CancellationToken))
+				if (GeneratorOps.TryGetGenericTypeArgument(compilation, genClassNameNode, out ITypeSymbol? attachmentNarrowingType, cancellationToken))
 				{
 					generateThis.AttachmentNarrowingType = attachmentNarrowingType;
 					targetTypeName = attachmentNarrowingType.ToDisplayString();
@@ -581,17 +582,16 @@ public partial class DependencyPropertyGenerator
 			return $"new PropertyMetadata() {{ CoerceValueCallback = {coercionHandler} }}";
 		}
 
-		string nullLiteral = this.useNullableContext ? "null!" : "null";
 		return $"(PropertyMetadata){nullLiteral}";
 	}
 
 	/// <summary>
 	/// Attempts to gets the type of an argument node.
 	/// </summary>
-	private static ITypeSymbol? GetArgumentType(GeneratorExecutionContext context, ArgumentSyntax argumentNode)
+	private static ITypeSymbol? GetArgumentType(Compilation compilation, ArgumentSyntax argumentNode, CancellationToken cancellationToken)
 	{
-		var model = context.Compilation.GetSemanticModel(argumentNode.SyntaxTree);
-		var typeInfo = model.GetTypeInfo(argumentNode.Expression, context.CancellationToken);
+		var model = compilation.GetSemanticModel(argumentNode.SyntaxTree);
+		var typeInfo = model.GetTypeInfo(argumentNode.Expression, cancellationToken);
 		ITypeSymbol? argType = typeInfo.Type;
 
 		// Handle expressions like `(string?)null`.

@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 
@@ -23,12 +24,9 @@ namespace Bpz.Wpf;
 /// will be included in the registration.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
-public partial class DependencyPropertyGenerator : ISourceGenerator
+public partial class DependencyPropertyGenerator : IIncrementalGenerator
 {
-	/// <summary>
-	/// Whether the generated code should be null-aware (i.e. the nullable annotation context is enabled).
-	/// </summary>
-	private bool useNullableContext;
+	private string nullLiteral = "null";
 
 	// These will be initialized before first use.
 	private INamedTypeSymbol objTypeSymbol = null!; // System.Object
@@ -37,22 +35,47 @@ public partial class DependencyPropertyGenerator : ISourceGenerator
 	private INamedTypeSymbol? flagsTypeSymbol;      // System.Windows.FrameworkPropertyMetadataOptions
 	private INamedTypeSymbol? reTypeSymbol;         // System.Windows.RoutedEvent
 
-	public void Initialize(GeneratorInitializationContext context)
+	public void Initialize(IncrementalGeneratorInitializationContext context)
 	{
 		//DebugMe.Go();
-		context.RegisterForSyntaxNotifications(() => new SyntaxReceiver());
+
+		// Whether the generated code should be null-aware (i.e. the nullable annotation context is enabled).
+		var enableNullable = context
+			.ParseOptionsProvider
+			.Select(static (po, _) => (po as CSharpParseOptions)?.LanguageVersion >= LanguageVersion.CSharp8);
+
+		var generationRequests = context
+			.SyntaxProvider
+			.CreateSyntaxProvider(IsSyntaxTargetForGeneration, CreateGenerationDetails);
+
+		var source = enableNullable
+			.Combine(context.CompilationProvider)
+			.Combine(generationRequests.Collect());
+
+		context.RegisterSourceOutput(
+			source,
+			(spc, x) => Execute(
+				useNullableContext: x.Left.Left,
+				compilation: x.Left.Right,
+				generationRequests: x.Right,
+				context: spc));
 	}
 
-	public void Execute(GeneratorExecutionContext context)
+	private void Execute(bool useNullableContext, Compilation compilation, ImmutableArray<GenerationDetails> generationRequests, SourceProductionContext context)
 	{
 		//DebugMe.Go();
 
-		this.useNullableContext = (context.ParseOptions as CSharpParseOptions)?.LanguageVersion >= LanguageVersion.CSharp8;
+		this.nullLiteral = useNullableContext ? "null!" : "null";
 
-		var syntaxReceiver = (SyntaxReceiver)context.SyntaxReceiver!;
+		// Get these type symbols now so we don't waste time finding them each time we need them later.
+		this.objTypeSymbol ??= compilation.GetTypeByMetadataName("System.Object")!;
+		this.doTypeSymbol ??= compilation.GetTypeByMetadataName("System.Windows.DependencyObject")!;
+		this.argsTypeSymbol ??= compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyChangedEventArgs")!;
+		this.flagsTypeSymbol ??= compilation.GetTypeByMetadataName("System.Windows.FrameworkPropertyMetadataOptions");
+		this.reTypeSymbol ??= compilation.GetTypeByMetadataName("System.Windows.RoutedEvent");
 
 		// Cast keys to `ISymbol` in the key selector to make the analyzer shutup about CS8602 ("Dereference of a possibly null reference.").
-		var namespaces = UpdateAndFilterGenerationRequests(context, syntaxReceiver.GenerationRequests)
+		var namespaces = UpdateAndFilterGenerationRequests(context, compilation, generationRequests)
 		   .GroupBy(g => (ISymbol)g.FieldSymbol.ContainingType, SymbolEqualityComparer.Default)
 		   .GroupBy(g => (ISymbol)g.Key.ContainingNamespace, SymbolEqualityComparer.Default);
 
@@ -60,13 +83,6 @@ public partial class DependencyPropertyGenerator : ISourceGenerator
 
 		foreach (var namespaceGroup in namespaces)
 		{
-			// Get these type symbols now so we don't waste time finding them each time we need them later.
-			this.objTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Object")!;
-			this.doTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.DependencyObject")!;
-			this.argsTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyChangedEventArgs")!;
-			this.flagsTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.FrameworkPropertyMetadataOptions");
-			this.reTypeSymbol ??= context.Compilation.GetTypeByMetadataName("System.Windows.RoutedEvent");
-
 			string namespaceName = namespaceGroup.Key.ToString();
 			sourceBuilder.Append($@"
 namespace {namespaceName}
@@ -84,7 +100,7 @@ namespace {namespaceName}
 				{
 					context.CancellationToken.ThrowIfCancellationRequested();
 
-					this.ApppendSource(context, sourceBuilder, generateThis);
+					this.ApppendSource(compilation, sourceBuilder, generateThis, context.CancellationToken);
 				}
 
 				sourceBuilder.Append(@"
@@ -99,7 +115,7 @@ namespace {namespaceName}
 
 		if (sourceBuilder.Length != 0)
 		{
-			string? maybeNullableContext = this.useNullableContext ? "#nullable enable" : null;
+			string? maybeNullableContext = useNullableContext ? "#nullable enable" : null;
 
 			sourceBuilder.Insert(0,
 $@"//------------------------------------------------------------------------------
@@ -114,41 +130,6 @@ using System.Windows;
 ");
 
 			context.AddSource($"bpz.DependencyProperties.g.cs", sourceBuilder.ToString());
-		}
-	}
-
-	private class SyntaxReceiver : ISyntaxReceiver
-	{
-		public List<GenerationDetails> GenerationRequests { get; } = new();
-
-		public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
-		{
-			// Looking for things like...
-			//	public static readonly System.Windows.DependencyProperty FooProperty = Gen.Foo(123);
-			//	public static readonly System.Windows.DependencyProperty BarProperty = GenAttached.Bar(123);
-			if (syntaxNode is FieldDeclarationSyntax fieldDecl)
-			{
-				// Looking for "DependencyProperty" or "DependencyPropertyKey" as the type of the field...
-				string fieldTypeName = fieldDecl.Declaration.Type.ToString();
-				if (fieldTypeName.LastIndexOf("DependencyProperty", StringComparison.Ordinal) >= 0)
-				{
-					// Looking for field initialization like "= Gen.Foo"...
-					var varDecl = fieldDecl.Declaration.Variables.FirstOrDefault();
-					if (varDecl?.Initializer?.Value is InvocationExpressionSyntax invocationExpr &&
-						invocationExpr.Expression is MemberAccessExpressionSyntax memberAccessExpr &&
-						memberAccessExpr.Expression is SimpleNameSyntax idName)
-					{
-						if (idName.Identifier.ValueText == "Gen")
-						{
-							this.GenerationRequests.Add(new(memberAccessExpr.Name, false));
-						}
-						else if (idName.Identifier.ValueText == "GenAttached")
-						{
-							this.GenerationRequests.Add(new(memberAccessExpr.Name, true));
-						}
-					}
-				}
-			}
 		}
 	}
 }

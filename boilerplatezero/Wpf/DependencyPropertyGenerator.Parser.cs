@@ -3,7 +3,9 @@
 using Bpz.CodeAnalysis;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace Bpz.Wpf;
 
@@ -13,10 +15,10 @@ public partial class DependencyPropertyGenerator
 	/// Inspects candidates for correctness and updates them with additional information.
 	/// Yields those which satisfy requirements for code generation.
 	/// </summary>
-	private static IEnumerable<GenerationDetails> UpdateAndFilterGenerationRequests(GeneratorExecutionContext context, IEnumerable<GenerationDetails> requests)
+	private static IEnumerable<GenerationDetails> UpdateAndFilterGenerationRequests(SourceProductionContext context, Compilation compilation, IEnumerable<GenerationDetails> requests)
 	{
-		INamedTypeSymbol? dpTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.DependencyProperty");
-		INamedTypeSymbol? dpkTypeSymbol = context.Compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyKey");
+		INamedTypeSymbol? dpTypeSymbol = compilation.GetTypeByMetadataName("System.Windows.DependencyProperty");
+		INamedTypeSymbol? dpkTypeSymbol = compilation.GetTypeByMetadataName("System.Windows.DependencyPropertyKey");
 		if (dpTypeSymbol == null || dpkTypeSymbol == null)
 		{
 			// This probably never happens, but whatevs.
@@ -25,7 +27,7 @@ public partial class DependencyPropertyGenerator
 
 		foreach (var gd in requests)
 		{
-			var model = context.Compilation.GetSemanticModel(gd.MethodNameNode.SyntaxTree);
+			var model = compilation.GetSemanticModel(gd.MethodNameNode.SyntaxTree);
 			if (model.GetEnclosingSymbol(gd.MethodNameNode.SpanStart, context.CancellationToken) is IFieldSymbol fieldSymbol &&
 				fieldSymbol.IsStatic &&
 				fieldSymbol.IsReadOnly)
@@ -52,6 +54,43 @@ public partial class DependencyPropertyGenerator
 				}
 			}
 		}
+	}
+
+	private static bool IsSyntaxTargetForGeneration(SyntaxNode syntaxNode, CancellationToken _)
+	{
+		// Looking for things like...
+		//	public static readonly System.Windows.DependencyProperty FooProperty = Gen.Foo(123);
+		//	public static readonly System.Windows.DependencyProperty BarProperty = GenAttached.Bar(123);
+		if (syntaxNode is FieldDeclarationSyntax fieldDecl)
+		{
+			// Looking for "DependencyProperty" or "DependencyPropertyKey" as the type of the field...
+			string? fieldTypeName = (fieldDecl.Declaration.Type as IdentifierNameSyntax)?.Identifier.ValueText;
+			if (fieldTypeName?.LastIndexOf("DependencyProperty", StringComparison.Ordinal) >= 0)
+			{
+				// Looking for field initialization like "= Gen.Foo"...
+				var varDecl = fieldDecl.Declaration.Variables.FirstOrDefault();
+				if (varDecl?.Initializer?.Value is InvocationExpressionSyntax invocationExpr &&
+					invocationExpr.Expression is MemberAccessExpressionSyntax memberAccessExpr &&
+					memberAccessExpr.Expression is SimpleNameSyntax idName)
+				{
+					return idName.Identifier.ValueText == "Gen" || idName.Identifier.ValueText == "GenAttached";
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private static GenerationDetails CreateGenerationDetails(GeneratorSyntaxContext context, CancellationToken _)
+	{
+		var fieldDecl = (FieldDeclarationSyntax)context.Node;
+
+		// Looking for field initialization like "= Gen.Foo"...
+		var varDecl = fieldDecl.Declaration.Variables[0];
+		var invocationExpr = (InvocationExpressionSyntax)varDecl.Initializer!.Value;
+		var memberAccessExpr = (MemberAccessExpressionSyntax)invocationExpr.Expression;
+		var idName = (SimpleNameSyntax)memberAccessExpr.Expression;
+		return new(memberAccessExpr.Name, isAttached: idName.Identifier.ValueText == "GenAttached");
 	}
 
 	/// <summary>
