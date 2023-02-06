@@ -1,52 +1,55 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>9.0</LangVersion>
-    <Nullable>enable</Nullable>
-    <RootNamespace>Bpz</RootNamespace>
-  </PropertyGroup>
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>10.0</LangVersion>
+		<Nullable>enable</Nullable>
+		<RootNamespace>Bpz</RootNamespace>
+		<IsRoslynComponent>true</IsRoslynComponent>
+	</PropertyGroup>
 
-  <PropertyGroup>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <DevelopmentDependency>true</DevelopmentDependency>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <PackageId>boilerplatezero</PackageId>
-    <Version>1.8.0</Version>
-    <Authors>IGood</Authors>
-    <Company />
-    <Copyright>Copyright (c) Ian Good</Copyright>
-    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Description>boilerplatezero (BPZ) is a collection of C# source generators that simplify the code required for common C# patterns.
+	<PropertyGroup>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<DevelopmentDependency>true</DevelopmentDependency>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<PackageId>boilerplatezero</PackageId>
+		<Version>2.0.0-beta</Version>
+		<Authors>IGood</Authors>
+		<Company />
+		<Copyright>Copyright (c) Ian Good</Copyright>
+		<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<Description>boilerplatezero (BPZ) is a collection of C# source generators that simplify the code required for common C# patterns.
 Included generators:
 - DependencyPropertyGenerator - generates idiomatic WPF dependency property code
 - RoutedEventGenerator - generates idiomatic WPF routed event code
-    </Description>
-    <PackageProjectUrl>https://github.com/IGood/boilerplatezero</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/IGood/boilerplatezero.git</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <PackageTags>bpz,source generator,wpf,dependency properties,routed events</PackageTags>
-    <PackageIcon>bpz logo dark.png</PackageIcon>
-    <PackageReadmeFile>nuget readme.md</PackageReadmeFile>
-  </PropertyGroup>
+		</Description>
+		<PackageProjectUrl>https://github.com/IGood/boilerplatezero</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/IGood/boilerplatezero.git</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>bpz,source generator,wpf,dependency properties,routed events</PackageTags>
+		<PackageIcon>bpz logo dark.png</PackageIcon>
+		<PackageReadmeFile>nuget readme.md</PackageReadmeFile>
+		<!-- 👇 fix for NU5128 https://docs.microsoft.com/en-us/nuget/reference/errors-and-warnings/nu5128 -->
+		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="3.10.0" PrivateAssets="all" />
-    <PackageReference Include="Nullable" Version="1.3.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.4.0" PrivateAssets="all" />
+		<PackageReference Include="Nullable" Version="1.3.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
 
-  <ItemGroup>
-    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
-    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
-  </ItemGroup>
+	<ItemGroup>
+		<AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+		<AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <!-- Package the generator in the analyzer directory of the nuget package -->
-    <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-    <None Include="..\product\bpz logo dark.png" Pack="true" PackagePath="" Visible="false" />
-    <None Include="..\product\nuget readme.md" Pack="true" PackagePath="" Visible="false" />
-  </ItemGroup>
+	<ItemGroup>
+		<!-- Package the generator in the analyzer directory of the nuget package -->
+		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+		<None Include="..\product\bpz logo dark.png" Pack="true" PackagePath="" Visible="false" />
+		<None Include="..\product\nuget readme.md" Pack="true" PackagePath="" Visible="false" />
+	</ItemGroup>
 </Project>

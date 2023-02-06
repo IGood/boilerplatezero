@@ -2,20 +2,19 @@
 
 using System.Diagnostics;
 
-namespace Bpz
+namespace Bpz;
+
+public static class DebugMe
 {
-	public static class DebugMe
+	public static void Go()
 	{
-		public static void Go()
+		if (Debugger.IsAttached)
 		{
-			if (Debugger.IsAttached)
-			{
-				Debugger.Break();
-			}
-			else
-			{
-				Debugger.Launch();
-			}
+			Debugger.Break();
+		}
+		else
+		{
+			Debugger.Launch();
 		}
 	}
 }

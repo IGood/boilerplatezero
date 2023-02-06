@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "boilerplatezero": {
+      "commandName": "DebugRoslynComponent",
+      "targetProject": "..\\Bpz.Test\\Bpz.Test.csproj"
+    }
+  }
+}
