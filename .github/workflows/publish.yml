@@ -9,11 +9,11 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Setup .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: 5.0.x
+        dotnet-version: 6.0.x
     - name: Install dependencies
       run: dotnet restore
       working-directory: ./boilerplatezero/
@@ -21,7 +21,4 @@ jobs:
       run: dotnet build --configuration Release --no-restore
       working-directory: ./boilerplatezero/
     - name: Publish NuGet
-      uses: brandedoutcast/publish-nuget@v2.5.5
-      with:
-        PROJECT_FILE_PATH: ./boilerplatezero/boilerplatezero.csproj
-        NUGET_KEY: ${{secrets.NUGET_API_KEY}}
+      run: dotnet nuget push **/*.nupkg --source 'https://api.nuget.org/v3/index.json' --api-key ${{secrets.NUGET_API_KEY}}
